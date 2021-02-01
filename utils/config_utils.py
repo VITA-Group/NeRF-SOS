@@ -84,7 +84,7 @@ def create_arg_parser():
                         help='number of additional fine samples per ray')
     parser.add_argument("--perturb", type=float, default=1.,
                         help='set to 0. for no jitter, 1. for jitter')
-    parser.add_argument("--use_viewdirs", action='store_true',
+    parser.add_argument("--use_viewdirs", type=bool, default=True,
                         help='use full 5D input instead of 3D')
     # parser.add_argument("--no_viewdirs", action='store_true',
     #                     help='disable full 5D input, using 3D without view dependency')

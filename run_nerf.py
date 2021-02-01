@@ -119,7 +119,8 @@ if __name__=='__main__':
                 config_file, _ = parser.parse_known_args(args=[], config_file_contents=f.read())
 
                 # Check hyper-parameter
-                keys = ['netdepth', 'netwidth', 'netdepth_fine', 'netwidth_fine', 'i_embed', 'multires']
+                keys = ['netdepth', 'netwidth', 'netdepth_fine', 'netwidth_fine', 'i_embed',
+                        'multires', 'use_viewdirs']
                 if not compare_args(args, config_file, keys):
                     ans = input('The network parameters are not compatible, reload hyper-parameters? (Y/N)')
                     if ans.lower() == 'y':
