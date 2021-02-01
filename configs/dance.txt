@@ -1,0 +1,23 @@
+expname = nerf_dance
+basedir = ./logs
+datadir = ./100views_NHR
+dataset_type = nerf
+dataset_subsample = 0
+
+N_rand = 1024
+N_samples = 128
+N_importance = 128
+multires = 10
+
+raw_noise_std = 1e0
+
+i_testset = 10000
+i_print = 100
+i_img = 1000
+i_weights = 1000
+
+log_img_train = 3
+log_img_test = 3
+
+lr1_decay_iter = 250000
+lr1_decay_rate = 0.1
