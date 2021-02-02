@@ -21,6 +21,11 @@ After generating datasets, users can train a NeRF by the following command:
 python run_nerf.py --action train --gpuid <your_device> --expname <output_folder> --config <default_config_file>
 ```
 
+While training, users can view logging information through `tensorboard`:
+```
+tensorboard --logdir='./logs' --port <your_port> --host 0.0.0.0
+```
+
 When training is done, users can synthesize exhibition video by running:
 ```
 python run_nerf.py --action video --gpuid <your_device> --expname <output_folder> --config <default_config_file>
