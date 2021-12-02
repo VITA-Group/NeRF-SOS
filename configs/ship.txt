@@ -1,6 +1,6 @@
 expname = blender_paper_ship
 basedir = ./logs
-datadir = ./data/nerf_synthetic/ship
+datadir = ./datasets/nerf_synthetic/ship
 dataset_type = blender
 
 no_batching = True

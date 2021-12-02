@@ -12,57 +12,52 @@ from tqdm import tqdm, trange
 
 import matplotlib.pyplot as plt
 
-from layers.point_sampling import StratifiedSampler, ImportanceSampler
-from layers.volumetric_rendering import VolumetricRenderer
-from net.nerf_voxel_net import NerfVoxelNet
-# from layers.camera_transform import *
+from models.sampler import StratifiedSampler, ImportanceSampler
+from models.renderer import VolumetricRenderer
+from models.nerf_mlp import NeRFMLP
 
-from utils.check_error import *
-from utils.image_utils import *
+from utils.error import *
 
-class NerfNet(nn.Module):
+class NeRFNet(nn.Module):
     
-    def __init__(self, args):
-        super(NerfNet, self).__init__()
+    def __init__(self, netdepth=8, netwidth=256, netdepth_fine=8, netwidth_fine=256, N_samples=64, N_importance=64,
+        viewdirs=True, use_embed=True, multires=10, multires_views=4, conv_embed=False, ray_chunk=1024*32, pts_chuck=1024*64,
+        perturb=1., raw_noise_std=0., white_bkgd=False):
+        
+        super().__init__()
 
         # Create sampler
-        self.point_sampler = StratifiedSampler(args.N_samples, perturb=args.perturb, lindisp=False, pytest=False)
+        self.N_samples, self.N_importance = N_samples, N_importance
+        self.point_sampler = StratifiedSampler(N_samples, perturb=perturb, lindisp=False, pytest=False)
         self.importance_sampler = None
-        if args.N_importance > 0:
-            self.importance_sampler = ImportanceSampler(args.N_importance, perturb=args.perturb, lindisp=False, pytest=False)
-
-        # Create transformer
-        # self.cam_transformer = None
-        # if args.num_cameras > 0:
-        #     self.cam_transformer = CameraTransformer(args.num_cameras, trainable=args.trainable_cams)
+        if N_importance > 0:
+            self.importance_sampler = ImportanceSampler(N_importance, perturb=perturb, lindisp=False, pytest=False)
 
         # Ray renderer
-        self.renderer = VolumetricRenderer()
+        self.renderer = VolumetricRenderer(raw_noise_std=raw_noise_std, white_bkgd=white_bkgd)
 
         # Maximum number of rays to process simultaneously. Used to control maximum memory usage. Does not affect final results.
-        self.chunk = args.chunk
+        self.chunk = ray_chunk
         # Save if use view directions (which cannot be changed after building networks)
-        self.use_viewdirs = args.use_viewdirs
+        self.use_viewdirs = viewdirs
 
-        # net params
-        input_ch = 3
-        output_ch = 4
-        skips = [4]
-
-        self.nerf = NerfVoxelNet(args, input_ch, output_ch, args.netdepth, args.netwidth, skips)
+        # create nerf mlps
+        self.nerf = NeRFMLP(input_dim=3, output_dim=4, net_depth=netdepth, net_width=netwidth, skips=[4],
+                viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views,
+                conv_embed=conv_embed, netchunk=pts_chuck)
         self.nerf_fine = self.nerf
-
-        # self.nerf_fine = None
-        # if args.N_importance > 0:
-        #     self.nerf_fine = NerfVoxelNet(args, input_ch, output_ch, args.netdepth, args.netwidth, skips)
+        if N_importance > 0:
+            self.nerf_fine = NeRFMLP(input_dim=3, output_dim=4, net_depth=netdepth_fine, net_width=netwidth_fine, skips=[4],
+                viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views,
+                conv_embed=conv_embed, netchunk=pts_chuck)
 
         # render parameters
         self.render_kwargs_train = {
-            'N_importance' : args.N_importance,
-            'N_samples' : args.N_samples,
-            'perturb' : args.perturb,
-            'raw_noise_std' : args.raw_noise_std,
-            'retraw' : True, 'retpts' : False
+            'N_importance': N_importance,
+            'N_samples': N_samples,
+            'perturb': perturb,
+            'raw_noise_std': raw_noise_std,
+            'retraw': True, 'retpts': False
         }
 
         # copy from train rendering first
@@ -70,15 +65,6 @@ class NerfNet(nn.Module):
         # no perturbation
         self.render_kwargs_test['perturb'] = 0.
         self.render_kwargs_test['raw_noise_std'] = 0.
-    
-    def load_net(self, ckpt):
-        if isinstance(ckpt, str):
-            ckpt = torch.load(ckpt)
-        try:
-            self.load_state_dict(ckpt['network_state_dict'])
-        except KeyError:
-            # For compatibility
-            self.load_state_dict(ckpt['network_fn_state_dict'])
 
     def render_rays(self, rays_o, rays_d, near, far, viewdirs=None, raw_noise_std=0.,
         verbose=False, retraw = False, retpts=False, pytest=False, **kwargs):
@@ -103,8 +89,9 @@ class NerfNet(nn.Module):
 
         # Primary sampling
         pts, z_vals, _ = self.point_sampler(rays_o, rays_d, bounds, **kwargs)  # [N_rays, N_samples, 3]
-        raw = self.nerf(pts, viewdirs)
-        ret = self.renderer(raw, pts, raw_noise_std=raw_noise_std, pytest=pytest)
+        viewdirs_c = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
+        raw = self.nerf(pts, viewdirs_c)
+        ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std, pytest=pytest)
 
         # Buffer raw/pts
         if retraw:
@@ -113,18 +100,18 @@ class NerfNet(nn.Module):
             ret['pts'] = pts
         
         # Secondary sampling
-        no_importance = kwargs['N_importance'] <= 0 if 'N_importance' in kwargs else False # Support temporarily disabling resampling
-        resample = (self.importance_sampler is not None) and (not no_importance)
-        if resample:
+        N_importance = kwargs.get('N_importance', self.N_importance)
+        if (self.importance_sampler is not None) and (N_importance > 0):
             # backup coarse model output
             ret0 = ret
 
             # resample
             pts, z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, **ret, **kwargs) # [N_rays, N_samples + N_importance, 3]
+            viewdirs_f = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
             # obtain raw data
-            raw = self.nerf_fine(pts, viewdirs)
+            raw = self.nerf_fine(pts, viewdirs_f)
             # render raw data
-            ret = self.renderer(raw, pts, raw_noise_std=raw_noise_std, pytest=pytest)
+            ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std, pytest=pytest)
             
             # Buffer raw/pts
             if retraw:
@@ -141,7 +128,7 @@ class NerfNet(nn.Module):
 
         return ret
 
-    def forward(self, ray_batch, bound_batch, test=False, **kwargs):
+    def forward(self, ray_batch, bound_batch, **kwargs):
         """Render rays
         Args:
           ray_batch: array of shape [2, batch_size, 3]. Ray origin and direction for
@@ -155,7 +142,7 @@ class NerfNet(nn.Module):
         """
 
         # Render settings
-        if not test:
+        if self.training:
             render_kwargs = self.render_kwargs_train.copy()
             render_kwargs.update(kwargs)
         else:
@@ -205,30 +192,3 @@ class NerfNet(nn.Module):
             all_ret[k] = torch.reshape(all_ret[k], k_sh) # [input_rays_shape, per_ray_output_shape]
 
         return all_ret
-
-    def loss(self, ret_dict, target_s):
-        rgb = ret_dict['rgb']
-        img_loss = img2mse(rgb, target_s)
-        psnr = mse2psnr(img_loss)
-        extras = dict(mse=img_loss, psnr=psnr)
-
-        loss = img_loss
-        if 'rgb0' in ret_dict:
-            img_loss0 = img2mse(ret_dict['rgb0'], target_s)
-            loss = loss + img_loss0
-            psnr0 = mse2psnr(img_loss0)
-
-            extras['mse0'] = img_loss0
-            extras['psnr0'] = psnr0
-
-        return loss, extras
-
-    # query raw data for points
-    def forward_pts(self, pts_batch, test=False, **kwargs):
-        raw = self.nerf(pts_batch)
-#         raw = 1.0 - torch.exp(-F.relu(raw))
-        return raw
-
-    # l1 loss or l2 loss?
-    def loss_raw(self, raw, target_s):
-        return F.loss_mse(raw, target_s)

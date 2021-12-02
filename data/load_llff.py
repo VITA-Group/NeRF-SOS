@@ -59,7 +59,7 @@ def _minify(basedir, factors=[], resolutions=[]):
         
         
         
-def _load_data(basedir, plane_name='', factor=None, width=None, height=None, load_imgs=True):
+def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     
     poses_arr = np.load(os.path.join(basedir, 'poses_bounds.npy'))
     poses = poses_arr[:, :-2].reshape([-1, 3, 5]).transpose([1,2,0])
@@ -68,16 +68,6 @@ def _load_data(basedir, plane_name='', factor=None, width=None, height=None, loa
     img0 = [os.path.join(basedir, 'images', f) for f in sorted(os.listdir(os.path.join(basedir, 'images'))) \
             if f.endswith('JPG') or f.endswith('jpg') or f.endswith('png')][0]
     sh = imageio.imread(img0).shape
-    
-    planes = None
-    if plane_name:
-        plane_name = '-' + plane_name
-    plane_name = 'planes' + plane_name + '.npy'
-    plane_path = os.path.join(basedir, plane_name)
-    if os.path.exists(plane_path):
-        print("Loading planes: %s" % plane_path)
-        planes = np.load(plane_path)
-        assert planes.shape[1] == 4
     
     sfx = ''
     
@@ -125,7 +115,7 @@ def _load_data(basedir, plane_name='', factor=None, width=None, height=None, loa
     imgs = np.stack(imgs, -1)  
     
     print('Loaded image data', imgs.shape, poses[:,-1,0])
-    return poses, bds, imgs, planes
+    return poses, bds, imgs
 
     
             
@@ -250,10 +240,10 @@ def spherify_poses(poses, bds):
     return poses_reset, new_poses, bds
     
 
-def load_llff_data(basedir, plane_name='', factor=8, recenter=True, bd_factor=.75, spherify=False, path_zflat=False):
+def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=False, path_zflat=False):
     
 
-    poses, bds, imgs, planes = _load_data(basedir, plane_name=plane_name, factor=factor) # factor=8 downsamples original imgs by 8x
+    poses, bds, imgs = _load_data(basedir, factor=factor) # factor=8 downsamples original imgs by 8x
     print('Loaded', basedir, bds.min(), bds.max())
     
     # Correct rotation matrix ordering and move variable dim to axis 0
@@ -323,7 +313,7 @@ def load_llff_data(basedir, plane_name='', factor=8, recenter=True, bd_factor=.7
     images = images.astype(np.float32)
     poses = poses.astype(np.float32)
 
-    return images, poses, bds, planes, render_poses, i_test
+    return images, poses, bds, render_poses, i_test
 
 
 

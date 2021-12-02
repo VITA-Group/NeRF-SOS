@@ -1,6 +1,6 @@
 expname = blender_paper_ficus
 basedir = ./logs
-datadir = ./data/nerf_synthetic/ficus
+datadir = ./datasets/nerf_synthetic/ficus
 dataset_type = blender
 
 no_batching = True

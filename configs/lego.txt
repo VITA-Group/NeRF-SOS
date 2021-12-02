@@ -1,6 +1,6 @@
 expname = blender_paper_lego
 basedir = ./logs
-datadir = ./data/nerf_synthetic/lego
+datadir = ./datasets/nerf_synthetic/lego
 dataset_type = blender
 
 no_batching = True

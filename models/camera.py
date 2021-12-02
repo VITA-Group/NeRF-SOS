@@ -39,6 +39,44 @@ def corrupt_cameras(cam_poses, offset=(-0.1, 0.1), rotation=(-5, 5)):
     
     return np.concatenate([rot, tr], axis=-1)
 
+def transform_rays(rays_o, rays_d, cam_id, rotation, offset):
+    euler = rotation[cam_id]
+    tvec = offset[cam_id]
+
+    rays_o = rays_o + tvec
+
+    # euler = np.random.rand(cam_poses.shape[0], 3)
+    # euler = (1 - euler) * rotation[0] + euler * rotation[1]
+    # euler = np.deg2rad(euler)
+    
+    # Pre-compute rotation matrices
+    Rx = torch.stack((
+        torch.ones_like(euler[:, 0]), torch.zeros_like(euler[:, 0]), torch.zeros_like(euler[:, 0]),
+        torch.zeros_like(euler[:, 0]), torch.cos(euler[:, 0]), -torch.sin(euler[:, 0]),
+        torch.zeros_like(euler[:, 0]), torch.sin(euler[:, 0]), torch.cos(euler[:, 0])
+    ), axis=1).reshape(-1, 3, 3)
+  
+    Ry = torch.stack((
+        torch.cos(euler[:, 1]), torch.zeros_like(euler[:, 1]), torch.sin(euler[:, 1]),
+        torch.zeros_like(euler[:, 1]), torch.ones_like(euler[:, 1]), torch.zeros_like(euler[:, 1]),
+        -torch.sin(euler[:, 1]), torch.zeros_like(euler[:, 1]), torch.cos(euler[:, 1])
+    ), axis=1).reshape(-1, 3, 3)
+
+    Rz = torch.stack((
+        torch.cos(euler[:, 2]), -torch.sin(euler[:, 2]), torch.zeros_like(euler[:, 2]),
+        torch.sin(euler[:, 2]), torch.cos(euler[:, 2]), torch.zeros_like(euler[:, 2]),
+        torch.zeros_like(euler[:, 2]), torch.zeros_like(euler[:, 2]), torch.ones_like(euler[:, 2])
+    ), axis=1).reshape(-1, 3, 3)
+    
+    # Apply rotation sequentially
+    rays_d = rays_d[..., None] # [N_samples, 3] -> [N_samples, 3, 1]
+    for R in [Rz, Ry, Rx]:
+        rays_d = torch.matmul(R, rays_d)
+    rays_d = rays_d.squeeze(-1)
+    
+    return rays_o, rays_d
+
+
 # Camera Transformation Layer
 class CameraTransformer(nn.Module):
 

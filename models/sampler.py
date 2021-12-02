@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 
 # TODO: remove this dependency
-from torchsearchsorted import searchsorted
+# from torchsearchsorted import searchsorted
 
 # Stratified Sampling Layer
 class StratifiedSampler(nn.Module):
@@ -36,13 +36,13 @@ class StratifiedSampler(nn.Module):
         z_vals: [N_rays, N_samples] The z-values of rays
         """
         
-        perturb = render_kwargs['perturb'] if 'perturb' in render_kwargs else self.perturb
-        N_samples = render_kwargs['N_samples'] if 'N_samples' in render_kwargs else self.N_samples
+        perturb = render_kwargs.get('perturb', self.perturb)
+        N_samples = render_kwargs.get('N_samples', self.N_samples)
         
         # Sample uniformly from near to far
         N_rays = rays_o.shape[0]
         near, far = bounds[..., 0, None], bounds[..., 1, None] # [N_rays, 1]
-        t_vals = torch.linspace(0., 1., steps=N_samples)
+        t_vals = torch.linspace(0., 1., steps=N_samples, device=rays_o.device)
         if not self.lindisp:
             z_vals = near * (1.-t_vals) + far * (t_vals)
         else:
@@ -50,13 +50,14 @@ class StratifiedSampler(nn.Module):
 
         z_vals = z_vals.expand([N_rays, N_samples])
 
+        # uniform noise
         if perturb > 0.:
             # get intervals between samples
             mids = .5 * (z_vals[...,1:] + z_vals[...,:-1])
             upper = torch.cat([mids, z_vals[...,-1:]], -1)
             lower = torch.cat([z_vals[...,:1], mids], -1)
             # stratified samples in those intervals
-            t_rand = torch.rand(z_vals.shape)
+            t_rand = torch.rand(z_vals.shape, device=z_vals.device)
 
             # Pytest, overwrite u with numpy's fixed random numbers
             if self.pytest:
@@ -95,10 +96,10 @@ class ImportanceSampler(nn.Module):
 
         # Take uniform samples
         if det:
-            u = torch.linspace(0., 1., steps=self.N_importance)
+            u = torch.linspace(0., 1., steps=self.N_importance, device=cdf.device)
             u = u.expand(list(cdf.shape[:-1]) + [self.N_importance])
         else:
-            u = torch.rand(list(cdf.shape[:-1]) + [self.N_importance])
+            u = torch.rand(list(cdf.shape[:-1]) + [self.N_importance], device=cdf.device)
 
         # Pytest, overwrite u with numpy's fixed random numbers
         if self.pytest:
@@ -113,7 +114,7 @@ class ImportanceSampler(nn.Module):
 
         # Invert CDF
         u = u.contiguous()
-        inds = searchsorted(cdf, u, side='right')
+        inds = torch.searchsorted(cdf, u, right=True)
         below = torch.max(torch.zeros_like(inds-1), inds-1)
         above = torch.min((cdf.shape[-1]-1) * torch.ones_like(inds), inds)
         inds_g = torch.stack([below, above], -1)  # (batch, N_samples, 2)
@@ -160,7 +161,7 @@ class ImportanceSampler(nn.Module):
 
         # Return new samples
         ret_extras['z_samples'] = z_samples
-        
+
         pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples + N_importance, 3]
 
         return pts, z_vals, ret_extras
@@ -225,7 +226,7 @@ class LayeredSampler(nn.Module):
                 mids = .5 * (z_vals[...,1:] + z_vals[...,:-1])
                 upper = torch.cat([mids, z_vals[...,-1:]], -1)
                 lower = torch.cat([z_vals[...,:1], mids], -1)
-                t_rand = torch.rand(z_vals.shape)
+                t_rand = torch.rand(z_vals.shape, device=z_vals.device)
 
                 # Pytest, overwrite u with numpy's fixed random numbers
                 if self.pytest:
@@ -236,16 +237,16 @@ class LayeredSampler(nn.Module):
                 z_vals = lower + (upper - lower) * t_rand
             else:
                 # Gaussian sampling over layers
-                t_rand = (perturb - 4.0) * torch.randn(z_vals.shape)
+                t_rand = (perturb - 4.0) * torch.randn(z_vals.shape, device=z_vals.device)
                 t_rand[t_rand > 1.0] = 1.0
                 t_rand[t_rand < -1.0] = -1.0
 
                 step = 0.5 * (z_vals[..., 1:] - z_vals[..., :-1])
 
-                length = torch.cat([step, torch.zeros(z_vals.shape[:-1])[..., None]], -1)
+                length = torch.cat([step, torch.zeros(z_vals.shape[:-1], device=z_vals.device)[..., None]], -1)
                 z_vals[t_rand > 0.0] += t_rand[t_rand > 0.0] * length[t_rand > 0.0]
 
-                length = torch.cat([torch.zeros(z_vals.shape[:-1])[..., None], step], -1)
+                length = torch.cat([torch.zeros(z_vals.shape[:-1], device=z_vals.device)[..., None], step], -1)
                 z_vals[t_rand < 0.0] += t_rand[t_rand < 0.0] * length[t_rand < 0.0]
 
         ## Rendering rays

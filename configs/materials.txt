@@ -1,6 +1,6 @@
 expname = materials_test
 basedir = ./logs
-datadir = ./data/nerf_llff_data/materials
+datadir = ./datasets/nerf_llff_data/materials
 dataset_type = llff
 
 factor = 8

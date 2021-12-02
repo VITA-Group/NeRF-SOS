@@ -4,7 +4,7 @@ import torch
 
 # Pre-defined collaters
 
-class Ray_Batch_Collate(object):
+class RayBatchCollater:
     def __init__(self):
         pass
 
@@ -12,13 +12,40 @@ class Ray_Batch_Collate(object):
         batch_rays = torch.stack([torch.as_tensor(x['rays']) for x in xs], 0)
         batch_rays = torch.transpose(batch_rays, 0, 1)
         
-        # When under exhibit mode, no groundtruth will be given
         batch_rgbs = None
         if 'target_s' in xs[0]:
             batch_rgbs = torch.stack([torch.as_tensor(x['target_s']) for x in xs], 0)
+
+        batch_cam_ids = None
+        if 'cam_id' in xs[0]:
+            batch_cam_ids = torch.stack([torch.as_tensor(x['cam_id']) for x in xs], 0)
+            return batch_rays, batch_rgbs, batch_cam_ids
+
         return batch_rays, batch_rgbs
 
-class Image_Batch_Collate(object):
+class ViewBatchCollater:
+    def __init__(self):
+        pass
+
+    def __call__(self, xs):
+        batch_rays = torch.cat([torch.as_tensor(x['rays']) for x in xs], 0)
+        batch_rays = torch.transpose(batch_rays, 0, 1)
+
+        # When under exhibit mode, no groundtruth will be given
+        batch_rgbs = None
+        if 'target_s' in xs[0]:
+            batch_rgbs = torch.cat([torch.as_tensor(x['target_s']) for x in xs], 0)
+
+        batch_cam_ids = None
+        if 'cam_id' in xs[0]:
+            batch_cam_ids = torch.cat([
+                torch.full((batch_rays.shape[0],), x['cam_id'], dtype=torch.int64) for x in xs
+            ], 0)
+            return batch_rays, batch_rgbs, batch_cam_ids
+
+        return batch_rays, batch_rgbs
+
+class ExhibitCollater:
     def __init__(self, H, W):
         self.H, self.W = H, W
 
@@ -35,7 +62,7 @@ class Image_Batch_Collate(object):
 
         return batch_rays, batch_rgbs
 
-class Point_Batch_Collate(object):
+class PointBatchCollater:
     def __init__(self):
         pass
 

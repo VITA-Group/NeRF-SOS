@@ -1,6 +1,6 @@
 expname = flower_test
 basedir = ./logs
-datadir = ./data/nerf_llff_data/flower
+datadir = ./datasets/nerf_llff_data/flower
 dataset_type = llff
 
 factor = 8

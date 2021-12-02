@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.image_utils import img2mse
+from utils.image import img2mse
 
 import matplotlib.pyplot as plt
 

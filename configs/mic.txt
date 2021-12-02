@@ -1,6 +1,6 @@
 expname = blender_paper_mic
 basedir = ./logs
-datadir = ./data/nerf_synthetic/mic
+datadir = ./datasets/nerf_synthetic/mic
 dataset_type = blender
 
 no_batching = True

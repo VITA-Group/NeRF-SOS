@@ -1,6 +1,6 @@
 expname = blender_paper_drums
 basedir = ./logs
-datadir = ./data/nerf_synthetic/drums
+datadir = ./datasets/nerf_synthetic/drums
 dataset_type = blender
 
 no_batching = True

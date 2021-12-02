@@ -1,6 +1,6 @@
 expname = fortress_test
 basedir = ./logs
-datadir = ./data/nerf_llff_data/fortress
+datadir = ./datasets/nerf_llff_data/fortress
 dataset_type = llff
 
 factor = 8

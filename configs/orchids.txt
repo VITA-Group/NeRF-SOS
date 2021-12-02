@@ -1,6 +1,6 @@
 expname = orchids_test
 basedir = ./logs
-datadir = ./data/nerf_llff_data/orchids
+datadir = ./datasets/nerf_llff_data/orchids
 dataset_type = llff
 
 factor = 8
