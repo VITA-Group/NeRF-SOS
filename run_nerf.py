@@ -58,7 +58,7 @@ def create_arg_parser():
                         help='layers in fine network')
     parser.add_argument("--netwidth_fine", type=int, default=256, 
                         help='channels per layer in fine network')
-    parser.add_argument("--max_steps", "--N_iters", type=int, default=500000, 
+    parser.add_argument("--max_steps", "--N_iters", type=int, default=200000, 
                         help='max iteration number (number of iteration to finish training)')
     parser.add_argument("--batch_size", "--N_rand", type=int, default=32*32*4, 
                         help='batch size (number of random rays per gradient step)')
@@ -244,13 +244,6 @@ def main(args):
             time0 = time.time()
             epoch = global_step // len(train_loader) + 1
             for batch in train_loader:
-
-                # global_step = train_one_epoch(model, optimizer, scheduler,
-                #     train_loader, test_set, exhibit_set, summary_writer,
-                #     global_step, args.max_steps, run_dir, device,
-                #     i_print=args.i_print, i_img=args.i_img, log_img_idx=args.log_img_idx,
-                #     i_weights=args.i_weights, i_testset=args.i_testset, i_video=args.i_video)
-
                 # counter accumulate
                 global_step += 1
                 # train for one batch
