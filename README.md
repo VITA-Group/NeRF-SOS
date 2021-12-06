@@ -1,4 +1,4 @@
-# Neural Radiance Field PyTorch Implementation
+# Neural Radiance Field - PyTorch Implementation
 Reimplementation of ECCV paper "NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis" with PyTorch library.
 Our code's key features include simplicity, reusability, high-level encapsulation, and extensive tunable hyper-parameters.
 
