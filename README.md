@@ -40,11 +40,6 @@ To run our code on NeRF dataset, users need first download data from official [c
 |   |   └── ship    # downloaded synthetic dataset
 |   |   └── ...
 ```
-The last step is to generate and process data via our provided script:
-```
-python gen_dataset.py --config <config_file>
-```
-where `<config_file>` is the path to the configuration file of your experiment instance. Examples and pre-defined configuration files are provided in `configs` folder.
 
 ## Training
 
@@ -52,6 +47,7 @@ After generating datasets, users can train a vanilla NeRF by the following comma
 ```
 python run_nerf.py --gpuid <gpu_id> --expname <output_folder> --config <default_config_file>
 ```
+`<default_config_file>` is the path to the configuration file of your experiment instance. Examples and pre-defined configuration files are provided in `configs` folder. `<output_folder>` is the output folder name under `logs/` directory.
 
 For more options, please check via the following instruction:
 ```

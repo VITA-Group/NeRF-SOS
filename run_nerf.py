@@ -27,14 +27,14 @@ from engines.eval import eval_one_view, evaluate, render_video, export_density
 
 def create_arg_parser():
     parser = configargparse.ArgumentParser()
-    parser.add_argument('--config', is_config_file=True, 
+
+    # basic options
+    parser.add_argument('--config', is_config_file=True,
                         help='config file path')
     parser.add_argument("--expname", type=str, 
                         help='experiment name')
     parser.add_argument("--basedir", type=str, default='./logs/', 
                         help='where to store ckpts and logs')
-    parser.add_argument("--data_path", "--datadir", type=str, default='./data/llff/fern', 
-                        help='input data directory')
     parser.add_argument("--gpuid", type=int, default=0, 
                         help='gpu id for cuda')
     parser.add_argument("--eval", action='store_true', 
@@ -43,11 +43,40 @@ def create_arg_parser():
                         help='render video during evaluation')
     parser.add_argument("--eval_vol", action='store_true', 
                         help='export density volume during evaluation')
+    parser.add_argument("--vol_extents", nargs='+', type=float, default=2., 
+                        help='extent of exported density volume')
+    parser.add_argument("--vol_size", type=float, default=2./256, 
+                        help='voxel size for exported density volume')
 
-    parser.add_argument("--save_rays", action='store_true', 
-                        help='save rays, near, far for visualization')
-    parser.add_argument("--save_pts", action='store_true', 
-                        help='save point samples for visualization')
+    # dataset options
+    parser.add_argument("--data_path", "--datadir", type=str, required=True, 
+                        help='input data directory')
+    parser.add_argument('--data_type', '--dataset_type', type=str, required=True,
+                        help='dataset type', choices=['llff', 'blender', 'LINEMOD', 'deepvoxels'])
+    parser.add_argument("--subsample", type=int, default=0, 
+                    help='subsampling rate if applicable')
+
+    # flags for llff
+    parser.add_argument('--ndc', action='store_true', default=False,
+        help='Turn on NDC device. Only for llff dataset')
+    parser.add_argument('--spherify', action='store_true', default=False,
+        help='Turn on spherical 360 scenes. Only for llff dataset')
+    parser.add_argument('--factor', type=int, default=8,
+        help='Downsample factor for LLFF images. Only for llff dataset')
+    parser.add_argument('--llffhold', type=int, default=8,
+        help='Hold out every 1/N images as test set. Only for llff dataset')
+
+    # flags for blend
+    parser.add_argument('--half_res', action='store_true', default=False,
+        help='Load half-resolution (400x400) images instead of full resolution (800x800). Only for blender dataset.')
+    parser.add_argument('--white_bkgd', action='store_true', default=False,
+        help='Render synthetic data on white background. Only for blender/LINEMOD dataset')
+    parser.add_argument('--test_skip', type=int, default=8, 
+        help='will load 1/N images from test/val sets. Only for large datasets like blender/LINEMOD/deepvoxels.')
+
+    ## flags for deepvoxels
+    parser.add_argument('--dv_scene', type=str, default='greek', 
+        help='Shape of deepvoxels scene. Only for deepvoxels dataset', choices=['armchair', 'cube', 'greek', 'vase'])
 
     # Training options
     parser.add_argument("--netdepth", type=int, default=8, 
@@ -118,20 +147,12 @@ def create_arg_parser():
                         help='log2 of max freq for positional encoding (2D direction)')
     parser.add_argument("--raw_noise_std", type=float, default=0., 
                         help='std dev of noise added to regularize sigma_a output, 1e0 recommended')
-    parser.add_argument('--white_bkgd', action='store_true', default=False,
-                        help='Render synthetic data on white background. Only for blender/LINEMOD dataset')
 
     # additional training options
     parser.add_argument("--precrop_iters", type=int, default=0,
                         help='number of steps to train on central crops')
     parser.add_argument("--precrop_frac", type=float,
                         default=.5, help='fraction of img taken for central crops') 
- 
-    # dataset options
-    parser.add_argument("--dataset_type", type=str, default='nerf', 
-                        help='options: nerf / point cloud')
-    parser.add_argument("--subsample", type=int, default=0, 
-                    help='subsampling rate if applicable')
 
     # logging/saving options
     parser.add_argument("--i_print",   type=int, default=200, 
@@ -217,9 +238,9 @@ def main(args):
 
     # Create dataset
     print("Loading nerf data:", args.data_path)
-    test_set = RayNeRFDataset(args.data_path, subsample=args.subsample, split='test', cam_id=False)
+    test_set = RayNeRFDataset(args.data_path, args, subsample=args.subsample, split='test', cam_id=False)
     try:
-        exhibit_set = ExhibitNeRFDataset(args.data_path, subsample=args.subsample)
+        exhibit_set = ExhibitNeRFDataset(args.data_path, args, subsample=args.subsample)
     except FileNotFoundError:
         exhibit_set = None
         print("Warning: No exhibit set!")
@@ -227,12 +248,14 @@ def main(args):
     ####### Training stage #######
     if not args.eval:
         if not args.no_batching:
-            train_set = RayNeRFDataset(args.data_path, subsample=args.subsample, split='train', cam_id=False)
+            train_set = RayNeRFDataset(args.data_path, args, subsample=args.subsample, split='train', cam_id=False)
             train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, 
                 collate_fn=RayBatchCollater(), num_workers=args.num_workers, pin_memory=args.pin_mem)
         else:
-            train_set = ViewNeRFDataset(args.data_path, args.batch_size, subsample=args.subsample, split='train', cam_id=False,
+            train_set = ViewNeRFDataset(args.data_path, args.batch_size, args, subsample=args.subsample, split='train', cam_id=False,
                 precrop_iters=args.precrop_iters, precrop_frac=args.precrop_frac, start_iters=global_step)
+            # number of workers must be zero, because there is an iteration counter inside.
+            # multi-threading will duplicate accumulation to that counter.
             train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, 
                 collate_fn=ViewBatchCollater(), num_workers=0, pin_memory=args.pin_mem)
 
@@ -317,18 +340,27 @@ def main(args):
     if args.eval_video and exhibit_set is not None:
         render_video(model, exhibit_set, device=device, save_dir=save_dir)
     if args.eval_vol:
-        export_density(model, extents=(2., 2., 2.), voxel_size=2./256, device=device, save_dir=save_dir)
+        extents = args.vol_extents
+        if isinstance(args.vol_extents, (float, int)):
+            extents = (args.vol_extents,)
+        if len(extents) == 1:
+            extents = extents * 3
+        if len(extents) != 3:
+            print('Unsupported length of extents:', extents)
+            return
+        print('Exporting volume ...')
+        export_density(model, extents=extents, voxel_size=args.vol_size, device=device, save_dir=save_dir)
 
 if __name__=='__main__':
     # Random seed
     np.random.seed(0)
 
+    # enable error detection
+    torch.autograd.set_detect_anomaly(True)
+
     # Read arguments and configs
     parser = create_arg_parser()
     args, _ = parser.parse_known_args()
-
-    # enable error detection
-    torch.autograd.set_detect_anomaly(True)
 
     main(args)
 

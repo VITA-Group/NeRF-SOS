@@ -1,7 +1,7 @@
 expname = materials_test
 basedir = ./logs
-datadir = ./datasets/nerf_llff_data/materials
-dataset_type = llff
+datadir = ./datasets/nerf_synthetic/materials
+dataset_type = blender
 
 factor = 8
 llffhold = 8

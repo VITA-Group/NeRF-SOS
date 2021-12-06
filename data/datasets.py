@@ -4,13 +4,20 @@ import numpy as np
 import torch
 import json
 
+from data.gen_dataset import generate_dataset
+
 class BaseNeRFDataset(torch.utils.data.Dataset):
     
-    def __init__(self, root_dir, split='train', subsample=0, cam_id=False, rgb=True):
+    def __init__(self, root_dir, args, split='train', subsample=0, cam_id=False, rgb=True):
 
         super().__init__()
 
         self.split = split
+
+        # if dataset not generated yet
+        if not os.path.exists(os.path.join(root_dir, 'meta.json')):
+            print('Dataset not prepared, generating rays for dataset ...')
+            generate_dataset(args, root_dir)
 
         # Read metadata
         with open(os.path.join(root_dir, 'meta.json'), 'r') as f:
@@ -68,9 +75,9 @@ class BaseNeRFDataset(torch.utils.data.Dataset):
 
 class RayNeRFDataset(BaseNeRFDataset):
 
-    def __init__(self, root_dir, split='train', subsample=0, cam_id=False):
+    def __init__(self, root_dir, args, split='train', subsample=0, cam_id=False):
 
-        super().__init__(root_dir, split=split, subsample=subsample, cam_id=cam_id, rgb=True)
+        super().__init__(root_dir, args, split=split, subsample=subsample, cam_id=cam_id, rgb=True)
 
         # Cast to tensors
         self.rays = torch.from_numpy(self.rays).float()
@@ -103,9 +110,9 @@ class RayNeRFDataset(BaseNeRFDataset):
 
 class ViewNeRFDataset(BaseNeRFDataset):
 
-    def __init__(self, root_dir, batch_size, split='train', subsample=0, cam_id=False, precrop_iters=0, precrop_frac=0.5, start_iters=0):
+    def __init__(self, root_dir, batch_size, args, split='train', subsample=0, cam_id=False, precrop_iters=0, precrop_frac=0.5, start_iters=0):
 
-        super().__init__(root_dir, split=split, subsample=subsample, cam_id=cam_id, rgb=True)
+        super().__init__(root_dir, args, split=split, subsample=subsample, cam_id=cam_id, rgb=True)
 
         self.batch_size = batch_size
         self.precrop_iters = precrop_iters
@@ -154,8 +161,6 @@ class ViewNeRFDataset(BaseNeRFDataset):
         batch_rays = torch.stack([rays_o, rays_d], 1)              # (N_rand, 2, 3)
         target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
-        # print(self.counter, self.precrop_iters, self.precrop_frac, self.start_iters, batch_rays.shape, target_s.shape)
-
         if self.split == 'train':
             if self.has_cam_id:
                 return dict(rays = batch_rays, target_s = target_s, cam_id = self.cam_ids[i]) # rays=[N, 3], cam_id=[1,]
@@ -167,8 +172,8 @@ class ViewNeRFDataset(BaseNeRFDataset):
 # Containing only rays for rendering, no rgb groundtruth
 class ExhibitNeRFDataset(BaseNeRFDataset):
 
-    def __init__(self, root_dir, subsample=0):
-        super().__init__(root_dir, split='exhibit', subsample=subsample, cam_id=False, rgb=False)
+    def __init__(self, root_dir, args, subsample=0):
+        super().__init__(root_dir, args, split='exhibit', subsample=subsample, cam_id=False, rgb=False)
 
         self.rays = torch.from_numpy(self.rays).float()
         self.rays = self.rays.permute([0, 3, 1, 2, 4]) # [N, ro+rd, H, W, 3(+id)]
@@ -179,19 +184,3 @@ class ExhibitNeRFDataset(BaseNeRFDataset):
 
     def __getitem__(self, i):
         return dict(rays = self.rays[i]) # [H, W, 3]
-
-# def load_dataset(dataset_path, subsample=0, cam_id=False, device=torch.device("cpu")):
-
-#     if not os.path.isdir(dataset_path):
-#         raise ValueError("No such directory containing dataset:", dataset_path)
-
-#     train_set = BatchNeRFDataset(dataset_path, subsample=subsample, split='train', cam_id=cam_id, device=device)
-#     test_set = BatchNeRFDataset(dataset_path, subsample=subsample, split='test', cam_id=True, device=device)
-
-#     exhibit_set = None
-#     try:
-#         exhibit_set = ExhibitNerfDataset(dataset_path, subsample=subsample, device=device)
-#     except FileNotFoundError:
-#         print("Warning: No exhibit set!")
-
-#     return train_set, test_set, exhibit_set

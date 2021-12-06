@@ -11,6 +11,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+if __name__ == '__main__':
+    sys.path.append('..')
+
 from utils.ray import get_persp_rays, get_persp_intrinsic
 
 from data.load_llff import load_llff_data
@@ -20,7 +23,8 @@ from data.load_blender import load_blender_data
 
 import configargparse
 
-if __name__ == '__main__':
+
+def create_arg_parser():
     parser = configargparse.ArgumentParser()
     parser.add_argument('--config', is_config_file=True, help='Path to config file')
     parser.add_argument('--data_type', '--dataset_type', type=str, required=True, help='Dataset type',
@@ -50,16 +54,13 @@ if __name__ == '__main__':
     parser.add_argument('--dv_scene', type=str, default='greek', 
         help='Shape of deepvoxels scene. Only for deepvoxels dataset', choices=['armchair', 'cube', 'greek', 'vase'])
 
-    args, _ = parser.parse_known_args()
+    return parser
+
+def generate_dataset(args, output_path):
 
     if not os.path.exists(args.data_path):
         print('Dataset path not exists:', args.data_path)
         exit(-1)
-
-    if not args.output_path:
-        args.output_path = args.data_path
-    if not os.path.exists(args.output_path):
-        os.makedirs(args.output_path, exist_ok=True)
 
     K = None # intrinsic matrix
     if args.data_type == 'llff':
@@ -151,17 +152,17 @@ if __name__ == '__main__':
     print('Testing set:', rays_test.shape, rgbs_test.shape)
     print('Exhibition set:', rays_exhibit.shape)
 
-    print('Saving to: ', args.output_path)
-    np.save(os.path.join(args.output_path, 'rays_train.npy'), rays_train)
-    np.save(os.path.join(args.output_path, 'rgbs_train.npy'), rgbs_train)
+    print('Saving to: ', output_path)
+    np.save(os.path.join(output_path, 'rays_train.npy'), rays_train)
+    np.save(os.path.join(output_path, 'rgbs_train.npy'), rgbs_train)
 
-    np.save(os.path.join(args.output_path, 'rays_val.npy'), rays_val)
-    np.save(os.path.join(args.output_path, 'rgbs_val.npy'), rgbs_val)
+    np.save(os.path.join(output_path, 'rays_val.npy'), rays_val)
+    np.save(os.path.join(output_path, 'rgbs_val.npy'), rgbs_val)
 
-    np.save(os.path.join(args.output_path, 'rays_test.npy'), rays_test)
-    np.save(os.path.join(args.output_path, 'rgbs_test.npy'), rgbs_test)
+    np.save(os.path.join(output_path, 'rays_test.npy'), rays_test)
+    np.save(os.path.join(output_path, 'rgbs_test.npy'), rgbs_test)
 
-    np.save(os.path.join(args.output_path, 'rays_exhibit.npy'), rays_exhibit)
+    np.save(os.path.join(output_path, 'rays_exhibit.npy'), rays_exhibit)
 
     # Save meta data
     meta_dict = {
@@ -177,5 +178,18 @@ if __name__ == '__main__':
         'test_skip': args.test_skip, 'dv_scene': args.dv_scene
     }
     print("Meta data:", meta_dict)
-    with open(os.path.join(args.output_path, 'meta.json'), 'w') as f:
+    with open(os.path.join(output_path, 'meta.json'), 'w') as f:
         json.dump(meta_dict, f)
+
+if __name__ == '__main__':
+
+    parser = create_arg_parser()
+    args, _ = parser.parse_known_args()
+
+    output_path = args.output_path
+    if not args.output_path:
+        output_path = args.data_path
+    if not os.path.exists(output_path):
+        os.makedirs(output_path, exist_ok=True)
+
+    generate_dataset(args, output_path)
