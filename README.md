@@ -43,7 +43,7 @@ To run our code on NeRF dataset, users need first download data from official [c
 
 ## Training
 
-After generating datasets, users can train a vanilla NeRF by the following command:
+After preparing datasets, users can train a vanilla NeRF by the following command:
 ```
 python run_nerf.py --gpuid <gpu_id> --expname <output_folder> --config <default_config_file>
 ```
