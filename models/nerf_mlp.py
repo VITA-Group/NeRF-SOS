@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm, trange
 
-from models.embedder import Embedder
+from models.embedder import PositionEncoding
 
 from utils.error import *
 
@@ -113,13 +113,13 @@ class NeRFMLP(nn.Module):
         if use_embed:
             periodic_fns = [torch.sin, torch.cos]
 
-        self.embedder = Embedder(input_dim, multires, multires-1, periodic_fns, log_sampling=True, include_input=True)
+        self.embedder = PositionEncoding(input_dim, multires, multires-1, periodic_fns, log_sampling=True, include_input=True)
         input_ch = self.embedder.out_dim
 
         input_ch_views = 0
         self.embeddirs = None
         if viewdirs:
-            self.embeddirs = Embedder(input_dim, multires_views, multires_views-1, periodic_fns, log_sampling=True, include_input=True)
+            self.embeddirs = PositionEncoding(input_dim, multires_views, multires_views-1, periodic_fns, log_sampling=True, include_input=True)
             input_ch_views = self.embeddirs.out_dim
 
         kernel_size = 3
@@ -145,7 +145,7 @@ class NeRFMLP(nn.Module):
         outputs = torch.cat(query_batches, 0) # [N_pts, C]
         return outputs
 
-    def forward(self, inputs, viewdirs=None, **kwargs):
+    def forward(self, inputs, viewdirs=None):
         """Prepares inputs and applies network.
         """
         # Flatten
@@ -182,3 +182,25 @@ class NeRFMLP(nn.Module):
         # Unflatten
         sh = list(inputs.shape[:-1]) + [outputs_flat.shape[-1]]
         return torch.reshape(outputs_flat, sh)
+
+
+class VolumeInterpolater(nn.Module):
+
+    def __init__(self, vol_size):
+        """
+        MLP backbone for NeRF
+        """
+        super().__init__()
+
+        self.V = nn.Parameter(torch.zeros(vol_size), requires_grad=True) # [D, H, W, C]
+
+    def load_from_numpy(self, np_arr):
+        self.V.data.copy_(torch.from_numpy(np_arr))
+
+    def forward(self, coords, viewdirs=None):
+
+        V = self.V.permute(3, 0, 1, 2)[None, ...] # [1, C, D, H, W]
+        coords = coords[None, None, ...] # [1, 1, N_rays, N_samples, 3]
+        interp = F.grid_sample(V, coords, align_corners=True) # [1, C, 1, N_rays, N_samples]
+        interp = interp.squeeze(0).squeeze(1).permute(1, 2, 0) # [1, C, 1, N_rays, N_samples] -> [N_rays, N_samples, C]
+        return interp

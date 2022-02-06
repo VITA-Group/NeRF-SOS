@@ -202,7 +202,7 @@ def main(args):
                 config_file, _ = parser.parse_known_args(args=[], config_file_contents=f.read())
                 # Hyper-parameters to reload
                 keys = ['netdepth', 'netwidth', 'netdepth_fine', 'netwidth_fine', 'use_embed',
-                        'multires', 'multires_views', 'use_viewdirs']
+                        'conv_embed', 'multires', 'multires_views', 'use_viewdirs']
                 if not compare_args(args, config_file, keys):
                     print('Reloading network parameters from', config_path)
                     update_args(args, config_file, keys)

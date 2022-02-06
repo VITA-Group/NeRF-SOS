@@ -16,8 +16,6 @@ from models.sampler import StratifiedSampler, ImportanceSampler
 from models.renderer import VolumetricRenderer
 from models.nerf_mlp import NeRFMLP
 
-from utils.error import *
-
 class NeRFNet(nn.Module):
     
     def __init__(self, netdepth=8, netwidth=256, netdepth_fine=8, netwidth_fine=256, N_samples=64, N_importance=64,
@@ -88,7 +86,7 @@ class NeRFNet(nn.Module):
         bounds = torch.cat([near, far], -1) # [N_rays, 2]
 
         # Primary sampling
-        pts, z_vals, _ = self.point_sampler(rays_o, rays_d, bounds, **kwargs)  # [N_rays, N_samples, 3]
+        pts, z_vals = self.point_sampler(rays_o, rays_d, bounds, **kwargs)  # [N_rays, N_samples, 3]
         viewdirs_c = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
         raw = self.nerf(pts, viewdirs_c)
         ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std, pytest=pytest)
@@ -106,7 +104,7 @@ class NeRFNet(nn.Module):
             ret0 = ret
 
             # resample
-            pts, z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, **ret, **kwargs) # [N_rays, N_samples + N_importance, 3]
+            pts, z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, ret[weights], **kwargs) # [N_rays, N_samples + N_importance, 3]
             viewdirs_f = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
             # obtain raw data
             raw = self.nerf_fine(pts, viewdirs_f)

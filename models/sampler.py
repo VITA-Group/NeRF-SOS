@@ -21,7 +21,7 @@ class StratifiedSampler(nn.Module):
         self.lindisp = lindisp
         self.pytest = pytest
 
-    def forward(self, rays_o, rays_d, bounds, **render_kwargs):
+    def forward(self, rays_o, rays_d, bounds, zvals_only=False, **render_kwargs):
         """ Generate sample points
         Args:
         rays_o: [N_rays, 3] origin points of rays
@@ -67,10 +67,11 @@ class StratifiedSampler(nn.Module):
 
             z_vals = lower + (upper - lower) * t_rand
         
-        pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
-
-        # No extras
-        return pts, z_vals, {}
+        if not zvals_only:
+            pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
+            return pts, z_vals
+        else:
+            return z_vals
     
 # Importance Resampling Layer
 class ImportanceSampler(nn.Module):
@@ -132,7 +133,7 @@ class ImportanceSampler(nn.Module):
 
         return samples
 
-    def forward(self, rays_o, rays_d, z_vals, weights, **render_kwargs):
+    def forward(self, rays_o, rays_d, z_vals, weights, zvals_only=False, **render_kwargs):
         """ Generate sample points
         Args:
         rays_o: [N_rays, 3] origin points of rays
@@ -162,9 +163,11 @@ class ImportanceSampler(nn.Module):
         # Return new samples
         ret_extras['z_samples'] = z_samples
 
-        pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples + N_importance, 3]
-
-        return pts, z_vals, ret_extras
+        if not zvals_only:
+            pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples + N_importance, 3]
+            return pts, z_vals, ret_extras
+        else:
+            return z_vals, ret_extras
 
 # Layered Sampling Layer
 class LayeredSampler(nn.Module):
@@ -187,14 +190,12 @@ class LayeredSampler(nn.Module):
             self.register_buffer('Ds', torch.Tensor(init_planes[:, -1])) # [N_planes, 3]
         
         self.register_buffer('ns', torch.Tensor(init_planes[:, :3])) # [N_planes, 3]
-            
-        print("Create %s layered sampler" % ('trainable' if self.Ds.requires_grad else 'non-trainable'))
 
     # Return if sampler supports resampling
     def has_resampling(self):
         return False
 
-    def forward(self, rays_o, rays_d, **render_kwargs):
+    def forward(self, rays_o, rays_d, zvals_only=False, **render_kwargs):
         """ Generate sample points
         Args:
         rays_o: [N_rays, 3] origin points of rays
@@ -249,10 +250,11 @@ class LayeredSampler(nn.Module):
                 length = torch.cat([torch.zeros(z_vals.shape[:-1], device=z_vals.device)[..., None], step], -1)
                 z_vals[t_rand < 0.0] += t_rand[t_rand < 0.0] * length[t_rand < 0.0]
 
-        ## Rendering rays
-        pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
-        if (torch.isnan(pts).any() or torch.isinf(pts).any()):
-            print(f"! [Numerical Error] pts contains nan or inf.")
+        if not zvals_only:
+            pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
+            if (torch.isnan(pts).any() or torch.isinf(pts).any()):
+                print(f"! [Numerical Error] pts contains nan or inf.")
 
-        # No extras
-        return pts, z_vals, {}
+            return pts, z_vals
+        else:
+            return z_vals
