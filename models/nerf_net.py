@@ -104,7 +104,7 @@ class NeRFNet(nn.Module):
             ret0 = ret
 
             # resample
-            pts, z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, ret[weights], **kwargs) # [N_rays, N_samples + N_importance, 3]
+            pts, z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, ret['weights'], **kwargs) # [N_rays, N_samples + N_importance, 3]
             viewdirs_f = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
             # obtain raw data
             raw = self.nerf_fine(pts, viewdirs_f)

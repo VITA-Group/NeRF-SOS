@@ -16,7 +16,7 @@ from engines.eval import eval_one_view, evaluate, render_video
 
 
 def train_one_step(batch, model, optimizer, scheduler, train_loader, global_step, device):
-    
+
     model.train()
 
     near, far = train_loader.dataset.near_far()

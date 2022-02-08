@@ -73,6 +73,9 @@ class BaseNeRFDataset(torch.utils.data.Dataset):
     def near_far(self):
         return self.meta_dict['near'], self.meta_dict['far']
 
+    def radii(self):
+        return 2. / max(self.height, self.width) * 2 / math.sqrt(12)
+
 class RayNeRFDataset(BaseNeRFDataset):
 
     def __init__(self, root_dir, args, split='train', subsample=0, cam_id=False):

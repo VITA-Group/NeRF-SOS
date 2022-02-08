@@ -21,6 +21,7 @@ from utils.image import to8b
 from data.datasets import RayNeRFDataset, ViewNeRFDataset, ExhibitNeRFDataset
 from data.collater import RayBatchCollater, ViewBatchCollater
 from models.nerf_net import NeRFNet
+from models.mip_nerf_net import MipNeRFNet
 from engines.lr import LRScheduler
 from engines.trainer import train_one_step, save_checkpoint
 from engines.eval import eval_one_view, evaluate, render_video, export_density

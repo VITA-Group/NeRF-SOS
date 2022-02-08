@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm, trange
 
-from models.embedder import PositionEncoding
+from models.embedder import PositionEncoder, IntegratedPositionEncoder
 
 from utils.error import *
 
@@ -108,19 +108,19 @@ class NeRFMLP(nn.Module):
 
         self.chunk = netchunk
 
-        # Provide empty periodic_fns to specify identity embedder
-        periodic_fns = []
+        self.embedder = nn.Identity()
+        self.embeddirs = None
+        input_ch = input_dim
+        input_ch_views = input_dim if viewdirs else 0
         if use_embed:
             periodic_fns = [torch.sin, torch.cos]
 
-        self.embedder = PositionEncoding(input_dim, multires, multires-1, periodic_fns, log_sampling=True, include_input=True)
-        input_ch = self.embedder.out_dim
+            self.embedder = PositionEncoder(input_dim, multires, multires-1, periodic_fns, log_sampling=True, include_input=True)
+            input_ch = self.embedder.out_dim
 
-        input_ch_views = 0
-        self.embeddirs = None
-        if viewdirs:
-            self.embeddirs = PositionEncoding(input_dim, multires_views, multires_views-1, periodic_fns, log_sampling=True, include_input=True)
-            input_ch_views = self.embeddirs.out_dim
+            if viewdirs:
+                self.embeddirs = PositionEncoder(input_dim, multires_views, multires_views-1, periodic_fns, log_sampling=True, include_input=True)
+                input_ch_views = self.embeddirs.out_dim
 
         kernel_size = 3
         padding = math.floor(kernel_size/2)
@@ -130,9 +130,8 @@ class NeRFMLP(nn.Module):
             if self.embeddirs is not None:
                 self.conv_embeddirs = nn.Conv1d(input_ch_views, input_ch_views, kernel_size=kernel_size, padding=padding)
 
-        output_ch = output_dim
         self.mlp = MLP(net_depth, net_width, skips=skips, input_ch=input_ch,
-            output_ch=output_ch, input_ch_views=input_ch_views, use_viewdirs=viewdirs)
+            output_ch=output_dim, input_ch_views=input_ch_views, use_viewdirs=viewdirs)
 
     def batchify(self, inputs):
         """Single forward feed that applies to smaller batches.
@@ -183,6 +182,60 @@ class NeRFMLP(nn.Module):
         sh = list(inputs.shape[:-1]) + [outputs_flat.shape[-1]]
         return torch.reshape(outputs_flat, sh)
 
+# Point query with mipnerf embedding
+class MipNeRFMLP(nn.Module):
+
+    def __init__(self, input_dim=3, output_dim=4, net_depth=8, net_width=256, skips=[4],
+        viewdirs=True, use_embed=True, multires=10, multires_views=4, netchunk=1024*64):
+
+        super().__init__()
+
+        self.chunk = netchunk
+
+        # Provide empty periodic_fns to specify identity embedder
+        self.embedder = lambda x, x_cov: x
+        self.embeddirs = None
+        input_ch = input_dim
+        input_ch_views = input_dim if viewdirs else 0
+        if use_embed:
+            self.embedder = IntegratedPositionEncoder(input_dim, multires, multires-1, log_sampling=True)
+            input_ch = self.embedder.out_dim
+
+            if viewdirs:
+                self.embeddirs = PositionEncoder(input_dim, multires_views, multires_views-1, log_sampling=True)
+                input_ch_views = self.embeddirs.out_dim
+
+        self.mlp = MLP(net_depth, net_width, skips=skips, input_ch=input_ch,
+            output_ch=output_dim, input_ch_views=input_ch_views, use_viewdirs=viewdirs)
+
+    def forward(self, x, x_cov, viewdirs=None):
+        """Prepares inputs and applies network.
+        """
+        # Flatten
+        x_flat = torch.reshape(x, [-1, x.shape[-1]]) # [N_pts, C]
+        x_cov_flat = torch.reshape(x, [-1, x_cov.shape[-1]]) # [N_pts, C]
+        if viewdirs is not None:
+            # input_dirs = viewdirs[:,None].expand(inputs.shape)
+            viewdirs_flat = torch.reshape(viewdirs, [-1, viewdirs.shape[-1]])
+        assert x_flat.shape[0] == viewdirs_flat.shape[0]
+
+        # Batchify
+        output_chunks = []
+        for i in range(0, x_flat.shape[0], self.chunk):
+            end = min(i+self.chunk, x_flat.shape[0])
+
+            embedded = self.embedder(x_flat[i:end], x_cov_flat[i:end])
+            # append view direction embedding
+            if self.embeddirs is not None:
+                embedded_dirs = self.embeddirs(viewdirs_flat[i:end])
+                embedded = torch.cat([embedded, embedded_dirs], -1)
+            h = self.mlp(embedded) # [N_chunk, C]
+            output_chunks.append(h)
+        outputs_flat = torch.cat(output_chunks, 0) # [N_pts, C]
+
+        # Unflatten
+        sh = list(inputs.shape[:-1]) + [outputs_flat.shape[-1]]
+        return torch.reshape(outputs_flat, sh)
 
 class VolumeInterpolater(nn.Module):
 
