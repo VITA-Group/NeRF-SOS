@@ -13,33 +13,32 @@ from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 
 from models.sampler import StratifiedSampler, ImportanceSampler
-from models.renderer import VolumetricRenderer
-from models.nerf_mlp import NeRFMLP
+from models.renderer import MipVolumetricRenderer
+from models.nerf_mlp import MipNeRFMLP
 from models.nerf_net import NeRFNet
 
 class MipNeRFNet(NeRFNet):
     
     def __init__(self, netdepth=8, netwidth=256, netdepth_fine=8, netwidth_fine=256, N_samples=64, N_importance=64,
-        radii=None, viewdirs=True, use_embed=True, radii, multires=10, multires_views=4, ray_chunk=1024*32, pts_chuck=1024*64,
+        viewdirs=True, use_embed=True, multires=10, multires_views=4, ray_chunk=1024*32, pts_chuck=1024*64,
         perturb=1., raw_noise_std=0., white_bkgd=False):
         
-        super().__init__(netdepth=1, netwidth=1, netdepth_fine=1, netwidth_fine=1,
-            viewdirs=False, use_embed=False, multires=0, multires_views=0, conv_embed=False,
+        super().__init__(netdepth=netdepth, netwidth=256, netdepth_fine=netdepth_fine, netwidth_fine=netwidth_fine,
+            viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views, conv_embed=False,
             N_samples=N_samples, N_importance=N_importance, ray_chunk=ray_chunk, pts_chuck=pts_chuck,
             perturb=perturb, raw_noise_std=raw_noise_std, white_bkgd=white_bkgd)
 
         del self.nerf
         del self.nerf_fine
+        del self.renderer
+
+        # Ray renderer
+        self.renderer = MipVolumetricRenderer(raw_noise_std=raw_noise_std, white_bkgd=white_bkgd)
 
         # create nerf mlps
         self.nerf = MipNeRFMLP(input_dim=3, output_dim=4, net_depth=netdepth, net_width=netwidth, skips=[4],
-                viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views,
-                conv_embed=conv_embed, netchunk=pts_chuck)
+                viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views, netchunk=pts_chuck)
         self.nerf_fine = self.nerf
-
-        assert radii is not None, 'Radii must be specified from dataset'
-        self.render_kwargs_train['radii'] = radii
-        self.render_kwargs_test['radii'] = radii
 
     def lift_gaussian(self, rays_d, t_mean, t_var, r_var, diag):
         """Lift a Gaussian defined along a ray to 3D coordinates.
@@ -52,19 +51,19 @@ class MipNeRFNet(NeRFNet):
         mean = rays_d[..., None, :] * t_mean[..., None]
 
         d_mag_sq = torch.maximum(
-            torch.full_like(d[..., :1], 1e-10), torch.sum(d**2, -1, keepdims=True)
+            torch.full_like(rays_d[..., :1], 1e-10), torch.sum(rays_d**2, -1, keepdims=True)
         ) # [N_rays, 1]
 
         if diag:
-            d_outer_diag = d**2 # [N_rays, 3]
+            d_outer_diag = rays_d**2 # [N_rays, 3]
             null_outer_diag = 1. - d_outer_diag / d_mag_sq # [N_rays, 3]
             t_cov_diag = t_var[..., None] * d_outer_diag[..., None, :] # [N_rays, N_samples, 3]
             xy_cov_diag = r_var[..., None] * null_outer_diag[..., None, :] # [N_rays, N_samples, 3]
             cov_diag = t_cov_diag + xy_cov_diag # [N_rays, N_samples, 3]
             return mean, cov_diag # [N_rays, N_samples, 3], # [N_rays, N_samples, 3]
         else:
-            d_outer = d[..., :, None] * d[..., None, :] # d d^T: [N_rays, 3, 3]
-            d_norm = d / torch.sqrt(d_mag_sq) # [N_rays, 3]
+            d_outer = rays_d[..., :, None] * rays_d[..., None, :] # d d^T: [N_rays, 3, 3]
+            d_norm = rays_d / torch.sqrt(d_mag_sq) # [N_rays, 3]
             eye = torch.eye(d.shape[-1]).expand(d_outer.shape) # [N_rays, 3, 3]
             null_outer = eye - d_norm[..., :, None] * d_norm[..., None, :] # [N_rays, 3, 3]
             t_cov = t_var[..., None, None] * d_outer[..., None, :, :] # [N_rays, N_samples, 3, 3]
@@ -123,7 +122,7 @@ class MipNeRFNet(NeRFNet):
         return self.lift_gaussian(rays_d, t_mean, t_var, r_var, diag)
 
 
-    def cast_rays(self, z_vals, rays_o, rays_d, radii, ray_shape, diag=True):
+    def cast_rays(self, z_vals, rays_o, rays_d, radii, ray_shape='cone', diag=True):
         """Cast rays (cone- or cylinder-shaped) and featurize sections of it.
         Args:
             z_vals: [N_rays, N_samples], the "fencepost" distances along the ray.
@@ -173,9 +172,9 @@ class MipNeRFNet(NeRFNet):
         # Primary sampling
         z_vals = self.point_sampler(rays_o, rays_d, bounds, zvals_only=True, **kwargs)  # [N_rays, N_samples, 3]
         pts, pts_cov = self.cast_rays(z_vals, rays_o, rays_d, radii)
-        viewdirs_c = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
+        viewdirs_c = viewdirs[..., None, :].expand(pts.shape) if self.use_viewdirs else None # [N_rays, 3] -> [N_rays, N_samples, 3]
         raw = self.nerf(pts, pts_cov, viewdirs_c)
-        ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std)
+        ret = self.renderer(raw, z_vals, rays_d, pad=False, raw_noise_std=raw_noise_std)
 
         # Buffer raw/pts
         if retraw:
@@ -198,15 +197,16 @@ class MipNeRFNet(NeRFNet):
             ], -1)
             weights_max = torch.maximum(weights_pad[..., :-1], weights_pad[..., 1:])
             weights_blur = 0.5 * (weights_max[..., :-1] + weights_max[..., 1:])
+            z_mids = (z_vals[...,1:] + z_vals[...,:-1]) / 2.
 
             # resample
-            z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, weights_blur, zvals_only=True, **kwargs) # [N_rays, N_samples + N_importance, 3]
+            z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_mids, weights_blur, zvals_only=True, **kwargs) # [N_rays, N_samples + N_importance, 3]
             pts, pts_cov = self.cast_rays(z_vals, rays_o, rays_d, radii)
-            viewdirs_f = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
+            viewdirs_f = viewdirs[..., None, :].expand(pts.shape) if self.use_viewdirs else None # [N_rays, 3] -> [N_rays, N_samples, 3]
             # obtain raw data
             raw = self.nerf_fine(pts, pts_cov, viewdirs_f)
             # render raw data
-            ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std)
+            ret = self.renderer(raw, z_vals, rays_d, pad=False, raw_noise_std=raw_noise_std)
             
             # Buffer raw/pts
             if retraw:
@@ -223,7 +223,7 @@ class MipNeRFNet(NeRFNet):
 
         return ret
 
-    def forward(self, ray_batch, bound_batch, **kwargs):
+    def forward(self, ray_batch, bound_batch, radii, **kwargs):
         """Render rays
         Args:
           ray_batch: array of shape [2, batch_size, 3]. Ray origin and direction for
@@ -267,8 +267,6 @@ class MipNeRFNet(NeRFNet):
             far = far * torch.ones_like(rays_d[...,:1], dtype=torch.float)
 
         # Extract radius
-        assert 'radii' in render_kwargs, 'No radii is provided to mip-nerf'
-        radii = render_kwargs['radii']
         if isinstance(radii, (int, float)):
             radii = radii * torch.ones_like(rays_d[...,:1], dtype=torch.float)
 
@@ -279,6 +277,7 @@ class MipNeRFNet(NeRFNet):
             chunk_o, chunk_d = rays_o[i:end], rays_d[i:end]
             chunk_n, chunk_f, chunk_r = near[i:end], far[i:end], radii[i:end]
             chunk_v = viewdirs[i:end] if self.use_viewdirs else None
+
             # Render function
             ret = self.render_rays(chunk_o, chunk_d, chunk_n, chunk_f, chunk_r, viewdirs=chunk_v, **render_kwargs)
             for k in ret:

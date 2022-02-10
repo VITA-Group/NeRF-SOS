@@ -16,7 +16,7 @@ from tqdm import tqdm, trange
 from utils.image import to8b, img2mse, mse2psnr, ssim, lpips
 from utils.ray import get_ortho_rays
 
-def eval_one_view(model, batch, near_far, device, **render_kwargs):
+def eval_one_view(model, batch, near_far, radii, device, **render_kwargs):
 
     model.eval()
 
@@ -25,7 +25,7 @@ def eval_one_view(model, batch, near_far, device, **render_kwargs):
         batch_rays = batch['rays'].to(device)
 
         # Run nerf
-        ret_dict = model(batch_rays, (near, far), **render_kwargs)
+        ret_dict = model(batch_rays, (near, far), radii=radii, **render_kwargs)
         for k, v in ret_dict.items():
             ret_dict[k] = v.cpu()
 
@@ -45,10 +45,11 @@ def eval_one_view(model, batch, near_far, device, **render_kwargs):
 def evaluate(model, dataset, device, save_dir=None, **render_kwargs):
 
     near, far = dataset.near_far()
+    radii = dataset.radii()
 
     all_metrics = {}
     for i, batch in enumerate(dataset):
-        ret_dict, metric_dict = eval_one_view(model, batch, (near, far), device=device, **render_kwargs)
+        ret_dict, metric_dict = eval_one_view(model, batch, (near, far), radii=radii, device=device, **render_kwargs)
 
         for k in ['mse', 'psnr', 'ssim', 'lpips']:
             if k not in all_metrics:
@@ -95,10 +96,11 @@ def evaluate(model, dataset, device, save_dir=None, **render_kwargs):
 def render_video(model, dataset, device, save_dir, suffix='', fps=30, quality=8, **render_kwargs):
 
     near, far = dataset.near_far()
+    radii = dataset.radii()
 
     rgbs, disps = [], []
     for i, batch in enumerate(tqdm(dataset, desc='Rendering')):
-        ret_dict, metric_dict = eval_one_view(model, batch, (near, far), device=device, **render_kwargs)
+        ret_dict, metric_dict = eval_one_view(model, batch, (near, far), radii=radii, device=device, **render_kwargs)
         rgbs.append(ret_dict['rgb'])
         disps.append(ret_dict['disp'])
 

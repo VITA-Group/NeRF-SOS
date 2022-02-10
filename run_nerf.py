@@ -135,6 +135,8 @@ def create_arg_parser():
     parser.add_argument("--no_viewdirs", action='store_false', dest='use_viewdirs',
                         help='disable full 5D input, using 3D without view dependency')
     parser.set_defaults(use_viewdirs=True)
+    parser.add_argument("--mipnerf", action='store_true', default=True, 
+                        help='use mipnerf model')
     parser.add_argument("--use_embed", action='store_true', default=True, 
                         help='turn on positional encoding')
     parser.add_argument("--no_embed", action='store_false', dest='use_embed', 
@@ -209,10 +211,17 @@ def main(args):
                     update_args(args, config_file, keys)
 
     # Create model and optimizer
-    model = NeRFNet(netdepth=args.netdepth, netwidth=args.netwidth, netwidth_fine=args.netwidth_fine, netdepth_fine=args.netdepth_fine,
+    if args.mipnerf:
+        model = MipNeRFNet(netdepth=args.netdepth, netwidth=args.netwidth, netwidth_fine=args.netwidth_fine, netdepth_fine=args.netdepth_fine,
         N_samples=args.N_samples, N_importance=args.N_importance, viewdirs=args.use_viewdirs, use_embed=args.use_embed, multires=args.multires,
-        multires_views=args.multires_views, conv_embed=args.conv_embed, ray_chunk=args.ray_chunk, pts_chuck=args.pts_chunk, perturb=args.perturb,
+        multires_views=args.multires_views, ray_chunk=args.ray_chunk, pts_chuck=args.pts_chunk, perturb=args.perturb,
         raw_noise_std=args.raw_noise_std, white_bkgd=args.white_bkgd).to(device)
+
+    else:
+        model = NeRFNet(netdepth=args.netdepth, netwidth=args.netwidth, netwidth_fine=args.netwidth_fine, netdepth_fine=args.netdepth_fine,
+            N_samples=args.N_samples, N_importance=args.N_importance, viewdirs=args.use_viewdirs, use_embed=args.use_embed, multires=args.multires,
+            multires_views=args.multires_views, conv_embed=args.conv_embed, ray_chunk=args.ray_chunk, pts_chuck=args.pts_chunk, perturb=args.perturb,
+            raw_noise_std=args.raw_noise_std, white_bkgd=args.white_bkgd).to(device)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lrate, betas=(0.9, 0.999))
     scheduler = LRScheduler(optimizer=optimizer, init_lr=args.lrate, decay_rate=args.decay_rate, decay_steps=args.decay_step*1000)
     global_step = 0
@@ -237,7 +246,7 @@ def main(args):
         model.load_state_dict(ckpt_dict['model'])
         optimizer.load_state_dict(ckpt_dict['optimizer'])
 
-    # Create dataset
+    # Create eval dataset
     print("Loading nerf data:", args.data_path)
     test_set = RayNeRFDataset(args.data_path, args, subsample=args.subsample, split='test', cam_id=False)
     try:
@@ -248,6 +257,7 @@ def main(args):
 
     ####### Training stage #######
     if not args.eval:
+        # Create train dataset
         if not args.no_batching:
             train_set = RayNeRFDataset(args.data_path, args, subsample=args.subsample, split='train', cam_id=False)
             train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, 
@@ -297,12 +307,12 @@ def main(args):
                 # logging images
                 if global_step % args.i_img == 0 and global_step > 0:
                     # Output test images to tensorboard
-                    ret_dict, metric_dict = eval_one_view(model, test_set[args.log_img_idx], (near, far), device=device)
+                    ret_dict, metric_dict = eval_one_view(model, test_set[args.log_img_idx], (near, far), radii=test_set.radii(), device=device)
                     summary_writer.add_image('test/rgb', to8b(ret_dict['rgb'].numpy()), global_step, dataformats='HWC')
                     summary_writer.add_image('test/disp', to8b(ret_dict['disp'].numpy() / np.max(ret_dict['disp'].numpy())), global_step, dataformats='HWC')
 
                     # Render test set to tensorboard looply
-                    ret_dict, metric_dict = eval_one_view(model, test_set[(global_step//args.i_img-1) % len(test_set)], (near, far), device=device)
+                    ret_dict, metric_dict = eval_one_view(model, test_set[(global_step//args.i_img-1) % len(test_set)], (near, far), radii=test_set.radii(), device=device)
                     summary_writer.add_image('loop/rgb', to8b(ret_dict['rgb'].numpy()), global_step, dataformats='HWC')
                     summary_writer.add_image('loop/disp', to8b(ret_dict['disp'].numpy() / np.max(ret_dict['disp'].numpy())), global_step, dataformats='HWC')
 

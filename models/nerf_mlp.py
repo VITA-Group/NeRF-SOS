@@ -220,7 +220,7 @@ class MipNeRFMLP(nn.Module):
         assert x_flat.shape[0] == viewdirs_flat.shape[0]
 
         # Batchify
-        output_chunks = []
+        y_chunks = []
         for i in range(0, x_flat.shape[0], self.chunk):
             end = min(i+self.chunk, x_flat.shape[0])
 
@@ -230,12 +230,12 @@ class MipNeRFMLP(nn.Module):
                 embedded_dirs = self.embeddirs(viewdirs_flat[i:end])
                 embedded = torch.cat([embedded, embedded_dirs], -1)
             h = self.mlp(embedded) # [N_chunk, C]
-            output_chunks.append(h)
-        outputs_flat = torch.cat(output_chunks, 0) # [N_pts, C]
+            y_chunks.append(h)
+        ys_flat = torch.cat(y_chunks, 0) # [N_pts, C]
 
         # Unflatten
-        sh = list(inputs.shape[:-1]) + [outputs_flat.shape[-1]]
-        return torch.reshape(outputs_flat, sh)
+        sh = list(x.shape[:-1]) + [ys_flat.shape[-1]]
+        return torch.reshape(ys_flat, sh)
 
 class VolumeInterpolater(nn.Module):
 

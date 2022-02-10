@@ -87,7 +87,7 @@ class NeRFNet(nn.Module):
 
         # Primary sampling
         pts, z_vals = self.point_sampler(rays_o, rays_d, bounds, **kwargs)  # [N_rays, N_samples, 3]
-        viewdirs_c = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
+        viewdirs_c = viewdirs[..., None, :].expand(pts.shape) if self.use_viewdirs else None # [N_rays, 3] -> [N_rays, N_samples, 3]
         raw = self.nerf(pts, viewdirs_c)
         ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std, pytest=pytest)
 
@@ -105,7 +105,7 @@ class NeRFNet(nn.Module):
 
             # resample
             pts, z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_vals, ret['weights'], **kwargs) # [N_rays, N_samples + N_importance, 3]
-            viewdirs_f = viewdirs[..., None, :].expand(pts.shape) # [N_rays, 3] -> [N_rays, N_samples, 3]
+            viewdirs_f = viewdirs[..., None, :].expand(pts.shape) if self.use_viewdirs else None # [N_rays, 3] -> [N_rays, N_samples, 3]
             # obtain raw data
             raw = self.nerf_fine(pts, viewdirs_f)
             # render raw data

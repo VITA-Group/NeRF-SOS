@@ -20,13 +20,14 @@ def train_one_step(batch, model, optimizer, scheduler, train_loader, global_step
     model.train()
 
     near, far = train_loader.dataset.near_far()
+    radii = train_loader.dataset.radii()
 
     # make sure on cuda
     batch_rays, gt = batch
     batch_rays, gt = batch_rays.to(device), gt.to(device)
 
     #####  Core optimization loop  #####
-    ret_dict = model(batch_rays, (near, far)) # no extraction
+    ret_dict = model(batch_rays, (near, far), radii=radii) # no extraction
 
     optimizer.zero_grad()
 
@@ -53,6 +54,7 @@ def train_one_epoch(model, optimizer, scheduler, train_loader, test_set, exhibit
     run_dir, device, i_print=100, i_img=500, log_img_idx=0, i_weights=10000, i_testset=50000, i_video=50000):
 
     near, far = train_loader.dataset.near_far()
+    radii = train_loader.dataset.radii()
 
     start_step = global_step
     epoch = global_step // len(train_loader) + 1
@@ -68,7 +70,7 @@ def train_one_epoch(model, optimizer, scheduler, train_loader, test_set, exhibit
         batch_rays, gt = batch_rays.to(device), gt.to(device)
 
         #####  Core optimization loop  #####
-        ret_dict = model(batch_rays, (near, far)) # no extraction
+        ret_dict = model(batch_rays, (near, far), radii=radii) # no extraction
 
         optimizer.zero_grad()
 
@@ -113,12 +115,12 @@ def train_one_epoch(model, optimizer, scheduler, train_loader, test_set, exhibit
         # logging images
         if global_step % i_img == 0 and global_step > 0:
             # Output test images to tensorboard
-            ret_dict, metric_dict = eval_one_view(model, test_set[log_img_idx], (near, far), device=device)
+            ret_dict, metric_dict = eval_one_view(model, test_set[log_img_idx], (near, far), radii=radii, device=device)
             summary_writer.add_image('test/rgb', to8b(ret_dict['rgb'].numpy()), global_step, dataformats='HWC')
             summary_writer.add_image('test/disp', to8b(ret_dict['disp'].numpy() / np.max(ret_dict['disp'].numpy())), global_step, dataformats='HWC')
 
             # Render test set to tensorboard looply
-            ret_dict, metric_dict = eval_one_view(model, test_set[(global_step//i_img-1) % len(test_set)], (near, far), device=device)
+            ret_dict, metric_dict = eval_one_view(model, test_set[(global_step//i_img-1) % len(test_set)], (near, far), radii=radii, device=device)
             summary_writer.add_image('loop/rgb', to8b(ret_dict['rgb'].numpy()), global_step, dataformats='HWC')
             summary_writer.add_image('loop/disp', to8b(ret_dict['disp'].numpy() / np.max(ret_dict['disp'].numpy())), global_step, dataformats='HWC')
 

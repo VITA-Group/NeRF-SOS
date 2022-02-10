@@ -1,3 +1,4 @@
+import math
 import numpy as np
 
 import torch
@@ -50,8 +51,7 @@ class IntegratedPositionEncoder(nn.Module):
 
     def __init__(self, input_dim, N_freqs, max_freq, log_sampling=True, trainable=False):
         super().__init__()
-        self.include_input = include_input or len(periodic_fns) == 0
-        self.out_dim = len(periodic_fns) * input_dim * N_freqs
+        self.out_dim = 2 * input_dim * N_freqs
 
         if log_sampling:
             freq_bands = 2.**torch.linspace(0., max_freq, steps=N_freqs)
@@ -85,7 +85,6 @@ class IntegratedPositionEncoder(nn.Module):
         if not diag:
             x_cov = torch.diagonal(x_cov, dim1=-2, dim2=-1)
 
-        scales = jnp.array([2**i for i in range(min_deg, max_deg)])
         y = x[..., None, :] * self.freq_bands[:, None] # [N_pts, 1, 3] x [N_freqs, 1] -> [N_pts, N_freqs, 3]
         y = y.reshape(x.shape[:-1]+(-1,)) # [N_pts, N_freqs * 3]
         y_var = x_cov[..., None, :] * self.freq_bands[:, None]**2 # [N_pts, 1, 3] x [N_freqs, 1] -> [N_pts, N_freqs, 3]
