@@ -16,6 +16,7 @@ from models.sampler import StratifiedSampler, ImportanceSampler
 from models.renderer import MipVolumetricRenderer
 from models.nerf_mlp import MipNeRFMLP
 from models.nerf_net import NeRFNet
+from utils.error import CHECK
 
 class MipNeRFNet(NeRFNet):
     
@@ -28,9 +29,9 @@ class MipNeRFNet(NeRFNet):
             N_samples=N_samples, N_importance=N_importance, ray_chunk=ray_chunk, pts_chuck=pts_chuck,
             perturb=perturb, raw_noise_std=raw_noise_std, white_bkgd=white_bkgd)
 
+        del self.renderer
         del self.nerf
         del self.nerf_fine
-        del self.renderer
 
         # Ray renderer
         self.renderer = MipVolumetricRenderer(raw_noise_std=raw_noise_std, white_bkgd=white_bkgd)
@@ -176,6 +177,9 @@ class MipNeRFNet(NeRFNet):
         raw = self.nerf(pts, pts_cov, viewdirs_c)
         ret = self.renderer(raw, z_vals, rays_d, pad=False, raw_noise_std=raw_noise_std)
 
+
+        CHECK(z_vals=z_vals, pts=pts, pts_cov=pts_cov, viewdirs_c=viewdirs_c, raw=raw)
+
         # Buffer raw/pts
         if retraw:
             ret['raw'] = raw
@@ -199,6 +203,9 @@ class MipNeRFNet(NeRFNet):
             weights_blur = 0.5 * (weights_max[..., :-1] + weights_max[..., 1:])
             z_mids = (z_vals[...,1:] + z_vals[...,:-1]) / 2.
 
+            CHECK(weights=weights, weights_blur=weights_blur)
+
+
             # resample
             z_vals, sampler_extras = self.importance_sampler(rays_o, rays_d, z_mids, weights_blur, zvals_only=True, **kwargs) # [N_rays, N_samples + N_importance, 3]
             pts, pts_cov = self.cast_rays(z_vals, rays_o, rays_d, radii)
@@ -207,7 +214,9 @@ class MipNeRFNet(NeRFNet):
             raw = self.nerf_fine(pts, pts_cov, viewdirs_f)
             # render raw data
             ret = self.renderer(raw, z_vals, rays_d, pad=False, raw_noise_std=raw_noise_std)
-            
+
+            CHECK(z_vals=z_vals, pts=pts, pts_cov=pts_cov, viewdirs_f=viewdirs_f, raw=raw)
+
             # Buffer raw/pts
             if retraw:
                 ret['raw'] = raw

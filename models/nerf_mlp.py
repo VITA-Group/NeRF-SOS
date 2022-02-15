@@ -213,7 +213,7 @@ class MipNeRFMLP(nn.Module):
         """
         # Flatten
         x_flat = torch.reshape(x, [-1, x.shape[-1]]) # [N_pts, C]
-        x_cov_flat = torch.reshape(x, [-1, x_cov.shape[-1]]) # [N_pts, C]
+        x_cov_flat = torch.reshape(x_cov, [-1, x_cov.shape[-1]]) # [N_pts, C]
         if viewdirs is not None:
             # input_dirs = viewdirs[:,None].expand(inputs.shape)
             viewdirs_flat = torch.reshape(viewdirs, [-1, viewdirs.shape[-1]])
