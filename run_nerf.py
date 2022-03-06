@@ -222,6 +222,8 @@ def main(args):
             N_samples=args.N_samples, N_importance=args.N_importance, viewdirs=args.use_viewdirs, use_embed=args.use_embed, multires=args.multires,
             multires_views=args.multires_views, conv_embed=args.conv_embed, ray_chunk=args.ray_chunk, pts_chuck=args.pts_chunk, perturb=args.perturb,
             raw_noise_std=args.raw_noise_std, white_bkgd=args.white_bkgd).to(device)
+    print("Num of Params:", sum(p.numel() for p in model.parameters() if p.requires_grad))
+
     optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lrate, betas=(0.9, 0.999))
     scheduler = LRScheduler(optimizer=optimizer, init_lr=args.lrate, decay_rate=args.decay_rate, decay_steps=args.decay_step*1000)
     global_step = 0
