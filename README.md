@@ -1,6 +1,8 @@
 # NeRF-SOS - PyTorch Implementation
 Implementation of paper "NeRF-SOS: Any-View Self-supervised Object Segmentation from Complex Real-World Scenes " with PyTorch library.
 
+[Project Page](https://zhiwenfan.github.io/NeRF-SOS/) | [Paper](https://arxiv.org/abs/2209.08776)
+
 <div>
 <img src="https://github.com/VITA-Group/NeRF-SOS/blob/main/datasets/imgs/flow_rgb.gif?raw=true" height="120"/>
 <img src="https://github.com/VITA-Group/NeRF-SOS/blob/main/datasets/imgs/flower_seg.gif?raw=true" height="120"/>
@@ -43,6 +45,8 @@ To run our code on NeRF dataset, users need first download data from official [c
 ```
 
 Then, please put the segments folder [LINK](https://drive.google.com/file/d/1gD5paJ8HBOFVyMRgweTc0jNTL41SmBFz/view?usp=sharing) under DATASET/SCENE/ (e.g., nerf_llff_data/flower/segments)
+
+We provide a data sampling for scene Flower in the [LINK](https://drive.google.com/file/d/1glu5KcPpXsLh9Im1b0X1M19Sja-HVkdL/view?usp=sharing), you can direct download it without any modification.
 
 run the following command to generate training and testing data
 ```
