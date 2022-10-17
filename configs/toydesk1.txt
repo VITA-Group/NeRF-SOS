@@ -1,0 +1,12 @@
+expname = toydesk1
+basedir = ./logs
+datadir = ./datasets/toydesk_data/processed/our_desk_1
+dataset_type = toydesk
+
+N_rand = 1024
+N_samples = 64
+N_importance = 128
+
+use_viewdirs = True
+raw_noise_std = 1e0
+

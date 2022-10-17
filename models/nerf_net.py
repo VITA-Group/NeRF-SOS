@@ -15,16 +15,18 @@ import matplotlib.pyplot as plt
 from models.sampler import StratifiedSampler, ImportanceSampler
 from models.renderer import VolumetricRenderer
 from models.nerf_mlp import NeRFMLP
+from pdb import set_trace as st
 
 class NeRFNet(nn.Module):
     
     def __init__(self, netdepth=8, netwidth=256, netdepth_fine=8, netwidth_fine=256, N_samples=64, N_importance=64,
         viewdirs=True, use_embed=True, multires=10, multires_views=4, conv_embed=False, ray_chunk=1024*32, pts_chuck=1024*64,
-        perturb=1., raw_noise_std=0., white_bkgd=False):
+        perturb=1., raw_noise_std=0., white_bkgd=False, use_semantics=False, sem_layer=2, sem_dim=2, sem_with_coord=False, sem_with_geo=False):
         
         super().__init__()
 
         # Create sampler
+        self.use_semantics = use_semantics
         self.N_samples, self.N_importance = N_samples, N_importance
         self.point_sampler = StratifiedSampler(N_samples, perturb=perturb, lindisp=False, pytest=False)
         self.importance_sampler = None
@@ -32,7 +34,7 @@ class NeRFNet(nn.Module):
             self.importance_sampler = ImportanceSampler(N_importance, perturb=perturb, lindisp=False, pytest=False)
 
         # Ray renderer
-        self.renderer = VolumetricRenderer(raw_noise_std=raw_noise_std, white_bkgd=white_bkgd)
+        self.renderer = VolumetricRenderer(raw_noise_std=raw_noise_std, white_bkgd=white_bkgd, use_semantics=use_semantics)
 
         # Maximum number of rays to process simultaneously. Used to control maximum memory usage. Does not affect final results.
         self.chunk = ray_chunk
@@ -42,12 +44,14 @@ class NeRFNet(nn.Module):
         # create nerf mlps
         self.nerf = NeRFMLP(input_dim=3, output_dim=4, net_depth=netdepth, net_width=netwidth, skips=[4],
                 viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views,
-                conv_embed=conv_embed, netchunk=pts_chuck)
+                conv_embed=conv_embed, netchunk=pts_chuck, use_semantics=use_semantics, sem_with_coord=sem_with_coord,
+                sem_layer=sem_layer, sem_dim=sem_dim, sem_with_geo=sem_with_geo)
         self.nerf_fine = self.nerf
         if N_importance > 0:
             self.nerf_fine = NeRFMLP(input_dim=3, output_dim=4, net_depth=netdepth_fine, net_width=netwidth_fine, skips=[4],
                 viewdirs=viewdirs, use_embed=use_embed, multires=multires, multires_views=multires_views,
-                conv_embed=conv_embed, netchunk=pts_chuck)
+                conv_embed=conv_embed, netchunk=pts_chuck,
+                use_semantics=use_semantics, sem_layer=sem_layer, sem_dim=sem_dim, sem_with_coord=sem_with_coord, sem_with_geo=sem_with_geo)
 
         # render parameters
         self.render_kwargs_train = {
@@ -90,7 +94,6 @@ class NeRFNet(nn.Module):
         viewdirs_c = viewdirs[..., None, :].expand(pts.shape) if self.use_viewdirs else None # [N_rays, 3] -> [N_rays, N_samples, 3]
         raw = self.nerf(pts, viewdirs_c)
         ret = self.renderer(raw, z_vals, rays_d, raw_noise_std=raw_noise_std, pytest=pytest)
-
         # Buffer raw/pts
         if retraw:
             ret['raw'] = raw

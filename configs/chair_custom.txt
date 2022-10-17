@@ -1,0 +1,12 @@
+expname = chair_custom
+basedir = ./logs
+datadir = ./datasets/chair_custom
+dataset_type = synthetic_custom
+
+N_rand = 4096
+N_samples = 64
+N_importance = 128
+
+use_viewdirs = True
+raw_noise_std = 1e0
+

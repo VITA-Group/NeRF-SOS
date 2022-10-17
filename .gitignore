@@ -1,7 +1,12 @@
+# logs
+logs/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+tmp/*
 
 # C extensions
 *.so
@@ -127,3 +132,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# dataset
+datasets/nerf_llff_data
+datasets/nerf_llff_data_fullres

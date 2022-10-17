@@ -3,6 +3,7 @@ torch.autograd.set_detect_anomaly(True)
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from pdb import set_trace as st
 
 # TODO: remove this dependency
 # from torchsearchsorted import searchsorted
@@ -41,7 +42,7 @@ class StratifiedSampler(nn.Module):
         
         # Sample uniformly from near to far
         N_rays = rays_o.shape[0]
-        near, far = bounds[..., 0, None], bounds[..., 1, None] # [N_rays, 1]
+        near, far = bounds[..., 0, None], bounds[..., 1, None] # [N_rays, 1] > fortress 1.2, 14.72
         t_vals = torch.linspace(0., 1., steps=N_samples, device=rays_o.device)
         if not self.lindisp:
             z_vals = near * (1.-t_vals) + far * (t_vals)
@@ -66,7 +67,6 @@ class StratifiedSampler(nn.Module):
                 t_rand = torch.Tensor(t_rand)
 
             z_vals = lower + (upper - lower) * t_rand
-        
         if not zvals_only:
             pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
             return pts, z_vals

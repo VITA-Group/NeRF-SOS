@@ -15,13 +15,49 @@ class RayBatchCollater:
         batch_rgbs = None
         if 'target_s' in xs[0]:
             batch_rgbs = torch.stack([torch.as_tensor(x['target_s']) for x in xs], 0)
-
+        
+        batch_masks = None
+        if 'masks' in xs[0]:
+            batch_masks = torch.stack([torch.as_tensor(x['masks']) for x in xs], 0)
+        
         batch_cam_ids = None
         if 'cam_id' in xs[0]:
             batch_cam_ids = torch.stack([torch.as_tensor(x['cam_id']) for x in xs], 0)
-            return batch_rays, batch_rgbs, batch_cam_ids
+            return batch_rays, batch_rgbs, batch_masks, batch_cam_ids
 
-        return batch_rays, batch_rgbs
+        return batch_rays, batch_rgbs, batch_masks
+
+class PatchBatchCollater:
+    def __init__(self):
+        pass
+
+    def __call__(self, xs):
+        batch_rays = None
+        if 'rays' in xs[0]:
+            batch_rays = torch.stack([torch.as_tensor(x['rays']) for x in xs], 0)
+        
+        batch_rgbs = None
+        if 'target_s' in xs[0]:
+            batch_rgbs = torch.stack([torch.as_tensor(x['target_s']) for x in xs], 0)
+        
+        batch_masks = None
+        if 'masks' in xs[0]:
+            batch_masks = torch.stack([torch.as_tensor(x['masks']) for x in xs], 0)
+        
+        batch_poses = None
+        if 'poses' in xs[0]:
+            batch_poses = torch.stack([torch.as_tensor(x['poses']) for x in xs], 0)
+        
+        batch_idx = None
+        if 'start_idx' in xs[0]:
+            batch_idx = torch.stack([torch.as_tensor(x['start_idx']) for x in xs], 0)
+        
+        batch_cam_ids = None
+        if 'cam_id' in xs[0]:
+            batch_cam_ids = torch.stack([torch.as_tensor(x['cam_id']) for x in xs], 0)
+            return batch_rays, batch_rgbs, batch_masks, batch_cam_ids
+
+        return batch_rays, batch_rgbs, batch_masks, batch_poses, batch_idx
 
 class ViewBatchCollater:
     def __init__(self):

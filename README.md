@@ -1,6 +1,12 @@
-# Neural Radiance Field - PyTorch Implementation
-Reimplementation of ECCV paper "NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis" with PyTorch library.
-Our code's key features include simplicity, reusability, high-level encapsulation, and extensive tunable hyper-parameters.
+# NeRF-SOS - PyTorch Implementation
+Implementation of paper "NeRF-SOS: Any-View Self-supervised Object Segmentation from Complex Real-World Scenes " with PyTorch library.
+
+<div>
+<img src="https://github.com/VITA-Group/NeRF-SOS/blob/main/datasets/imgs/flow_rgb.gif?raw=true" height="120"/>
+<img src="https://github.com/VITA-Group/NeRF-SOS/blob/main/datasets/imgs/flower_seg.gif?raw=true" height="120"/>
+<img src="https://github.com/VITA-Group/NeRF-SOS/blob/main/datasets/imgs/truck_rgb.gif?raw=true" height="120"/>
+<img src="https://github.com/VITA-Group/NeRF-SOS/blob/main/datasets/imgs/truck_seg.gif?raw=true" height="120"/>
+</div>
 
 ## Installation
 
@@ -31,23 +37,25 @@ To run our code on NeRF dataset, users need first download data from official [c
 │
 ├── datasets
 │   ├── nerf_llff_data
-│   │   └── fern
 │   │   └── flower  # downloaded llff dataset
-│   │   └── horns   # downloaded llff dataset
+│   │   └── fortress   # downloaded llff dataset
 |   |   └── ...
-|   ├── nerf_synthetic
-|   |   └── lego
-|   |   └── ship    # downloaded synthetic dataset
-|   |   └── ...
+```
+
+Then, please put the segments folder [LINK](https://drive.google.com/file/d/1gD5paJ8HBOFVyMRgweTc0jNTL41SmBFz/view?usp=sharing) under DATASET/SCENE/ (e.g., nerf_llff_data/flower/segments)
+
+run the following command to generate training and testing data
+```
+cd data
+python gen_dataset.py --config ../configs/flower_full.txt  --data_path /PATH_TO_DATA/nerf_llff_data_fullres/flower/  --data_type llff
 ```
 
 ## Training
 
-After preparing datasets, users can train a vanilla NeRF by the following command:
+After preparing datasets, users can train a NeRF-SOS by the following command:
 ```
-python run_nerf.py --gpuid <gpu_id> --expname <output_folder> --config <default_config_file>
+bash scripts/flower_node0.sh
 ```
-`<default_config_file>` is the path to the configuration file of your experiment instance. Examples and pre-defined configuration files are provided in `configs` folder. `<output_folder>` is the output folder name under `logs/` directory.
 
 For more options, please check via the following instruction:
 ```
@@ -63,24 +71,8 @@ tensorboard --logdir='./logs' --port <your_port> --host 0.0.0.0
 
 When training is done, users can synthesize exhibition video by running:
 ```
-python run_nerf.py --action video --gpuid <your_device> --expname <output_folder> --config <default_config_file>
+bash scrits/eval.sh
 ```
 
-To visualize geometry, users can first generate density field with flag `--eval_vol`:
-```
-python run_nerf.py --eval --eval_vol --gpuid <gpu_id> --config <default_config_file>
-```
-The exported volume will be saved into `<expname>/eval/` directory (with both `.npy` and `.mrc` suffices). Then users can use Python library [PyMCubes](https://github.com/pmneila/PyMCubes) or [USCF Chimera](https://www.cgl.ucsf.edu/chimera/) to threshold and extract meshes from the density field.
-
-## Acknowledgement
-
-Our code is implemented based on the following repository.
-
-```
-@misc{lin2020nerfpytorch,
-  title={NeRF-pytorch},
-  author={Yen-Chen, Lin},
-  howpublished={\url{https://github.com/yenchenlin/nerf-pytorch/}},
-  year={2020}
-}
-```
+## TODO
+support COLMAP poses

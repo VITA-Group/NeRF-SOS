@@ -13,9 +13,17 @@ from tqdm import tqdm, trange
 from models.embedder import PositionEncoder, IntegratedPositionEncoder
 
 from utils.error import *
+from pdb import set_trace as st
+
+def fc_block(in_f, out_f):
+    return torch.nn.Sequential(
+        torch.nn.Linear(in_f, out_f),
+        torch.nn.ReLU(out_f)
+    )
 
 class MLP(nn.Module):
-    def __init__(self, D=8, W=256, input_ch=3, input_ch_views=3, output_ch=4, skips=[4], use_viewdirs=False):
+    def __init__(self, D=8, W=256, input_ch=3, input_ch_views=3, output_ch=4, skips=[4], use_viewdirs=False, 
+    use_semantics=True, sem_layer=2, sem_dim=2, sem_with_coord=False, sem_with_geo=False):
         """
         MLP backbone for NeRF
         """
@@ -26,6 +34,8 @@ class MLP(nn.Module):
         self.input_ch_views = input_ch_views
         self.skips = skips
         self.use_viewdirs = use_viewdirs
+        self.use_semantics = use_semantics
+        self.sem_with_coord = sem_with_coord
         
         self.pts_linears = nn.ModuleList(
             [nn.Linear(input_ch, W)] + [nn.Linear(W, W) if i not in self.skips else nn.Linear(W + input_ch, W) for i in range(D-1)])
@@ -43,6 +53,16 @@ class MLP(nn.Module):
             self.rgb_linear = nn.Linear(W//2, output_ch-1)
         else:
             self.output_linear = nn.Linear(W, output_ch)
+        
+        if use_semantics:
+            sem_in_dim = W + input_ch if sem_with_coord else W
+    
+            if sem_layer <= 2:
+                self.semantic_linear = nn.Sequential(nn.Linear(sem_in_dim, W//2), nn.ReLU(), nn.Linear(W//2, sem_dim))
+            else:
+                self.semantic_linear = nn.Sequential(nn.Linear(sem_in_dim, W), nn.ReLU(), *[fc_block(W, W) for _ in range(sem_layer-3)], nn.Linear(W, W//2), nn.ReLU(), nn.Linear(W//2, sem_dim))
+            self.geo_map_sem = nn.Sequential(nn.Linear(1, W//2), nn.ReLU(), nn.Linear(W//2, sem_dim)) if sem_with_geo else None
+            print(f"> sem layer number: {sem_layer}, sem dim: {sem_dim}, sem input dim: {sem_in_dim}, geo_map_sem:{self.geo_map_sem}")
 
     def forward(self, x):
         input_pts, input_views = torch.split(x, [self.input_ch, self.input_ch_views], dim=-1)
@@ -55,6 +75,13 @@ class MLP(nn.Module):
 
         if self.use_viewdirs:
             alpha = self.alpha_linear(h)
+            if self.use_semantics:
+                sem_in = torch.cat([h, input_pts], dim=-1) if self.sem_with_coord else h
+                semantics = self.semantic_linear(sem_in)
+                if self.geo_map_sem is not None:
+                    mapping = self.geo_map_sem(alpha)
+                    semantics = semantics * mapping
+
 
             feature = self.feature_linear(h)
             h = torch.cat([feature, input_views], -1)
@@ -63,7 +90,10 @@ class MLP(nn.Module):
                 h = F.relu(h)
 
             rgb = self.rgb_linear(h)
-            outputs = torch.cat([rgb, alpha], -1)
+            if self.use_semantics:
+                outputs = torch.cat([rgb, alpha, semantics], -1)
+            else:
+                outputs = torch.cat([rgb, alpha], -1)
         else:
             outputs = self.output_linear(h)
 
@@ -102,7 +132,8 @@ class MLP(nn.Module):
 class NeRFMLP(nn.Module):
     
     def __init__(self, input_dim=3, output_dim=4, net_depth=8, net_width=256, skips=[4],
-        viewdirs=True, use_embed=True, multires=10, multires_views=4, conv_embed=False, netchunk=1024*64):
+        viewdirs=True, use_embed=True, multires=10, multires_views=4, conv_embed=False, netchunk=1024*64, 
+        use_semantics=False, sem_layer=2, sem_dim=2, sem_with_coord=False, sem_with_geo=False):
 
         super().__init__()
 
@@ -131,7 +162,8 @@ class NeRFMLP(nn.Module):
                 self.conv_embeddirs = nn.Conv1d(input_ch_views, input_ch_views, kernel_size=kernel_size, padding=padding)
 
         self.mlp = MLP(net_depth, net_width, skips=skips, input_ch=input_ch,
-            output_ch=output_dim, input_ch_views=input_ch_views, use_viewdirs=viewdirs)
+            output_ch=output_dim, input_ch_views=input_ch_views, use_viewdirs=viewdirs, 
+            use_semantics=use_semantics, sem_layer=sem_layer, sem_dim=sem_dim, sem_with_coord=sem_with_coord, sem_with_geo=sem_with_geo)
 
     def batchify(self, inputs):
         """Single forward feed that applies to smaller batches.

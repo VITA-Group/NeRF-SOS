@@ -10,6 +10,8 @@ import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from pdb import set_trace as st
+
 
 if __name__ == '__main__':
     sys.path.append('..')
@@ -20,6 +22,9 @@ from data.load_llff import load_llff_data
 from data.load_deepvoxels import load_dv_data
 from data.load_LINEMOD import load_LINEMOD_data
 from data.load_blender import load_blender_data
+from data.load_tankstemple import load_tankstemple_data
+from data.load_toydesk import load_toydesk_data
+from data.load_toydesk_custom import load_toydesk_custom_data
 
 import configargparse
 
@@ -28,7 +33,8 @@ def create_arg_parser():
     parser = configargparse.ArgumentParser()
     parser.add_argument('--config', is_config_file=True, help='Path to config file')
     parser.add_argument('--data_type', '--dataset_type', type=str, required=True, help='Dataset type',
-        choices=['llff', 'blender', 'LINEMOD', 'deepvoxels'])
+        choices=['llff', 'blender', 'LINEMOD', 'deepvoxels', 'tankstemple', 'toydesk', 'toydesk_custom', 'dtu',
+        'tankstemple_custom', 'synthetic_custom'])
     parser.add_argument('--data_path', '--datadir', type=str, required=True, help='Path to dataset directory')
     parser.add_argument('--output_path', type=str, default='', help='Path to save processed dataset directory')
 
@@ -53,6 +59,11 @@ def create_arg_parser():
     ## flags for deepvoxels
     parser.add_argument('--dv_scene', type=str, default='greek', 
         help='Shape of deepvoxels scene. Only for deepvoxels dataset', choices=['armchair', 'cube', 'greek', 'vase'])
+    
+    parser.add_argument("--inverse_y", default=False, 
+                        help='inverse y when generating dataset and render')
+    
+    parser.add_argument("--w_pose", action="store_true", default=False, help='save poses')
 
     return parser
 
@@ -61,10 +72,10 @@ def generate_dataset(args, output_path):
     if not os.path.exists(args.data_path):
         print('Dataset path not exists:', args.data_path)
         exit(-1)
-
+    print(f"[spherify]: {args.spherify}")
     K = None # intrinsic matrix
     if args.data_type == 'llff':
-        images, poses, bds, render_poses, i_test = load_llff_data(args.data_path, factor=args.factor,
+        images, poses, bds, render_poses, i_test, masks = load_llff_data(args.data_path, factor=args.factor,
             recenter=True, bd_factor=.75, spherify=args.spherify)
         hwf = poses[0,:3,-1]
         poses = poses[:,:3,:4]
@@ -77,7 +88,6 @@ def generate_dataset(args, output_path):
             i_test = np.arange(images.shape[0])[::args.llffhold]
         i_val = i_test
         i_train = np.array([i for i in np.arange(int(images.shape[0])) if (i not in i_test and i not in i_val)])
-
         if args.ndc:
             near = 0.
             far = 1.
@@ -110,6 +120,7 @@ def generate_dataset(args, output_path):
         else:
             images = images[...,:3]
 
+
     elif args.data_type == 'deepvoxels':
         images, poses, render_poses, hwf, i_split = load_dv_data(scene=args.dv_scene, basedir=args.data_path, testskip=args.test_skip)
 
@@ -119,6 +130,48 @@ def generate_dataset(args, output_path):
         hemi_R = np.mean(np.linalg.norm(poses[:,:3,-1], axis=-1))
         near = hemi_R-1.
         far = hemi_R+1.
+    
+    elif args.data_type == 'tankstemple':
+        images, poses, render_poses, hwf, K, i_split = load_tankstemple_data(args.data_path)
+        i_train, i_val, i_test = i_split
+
+        near, far = inward_nearfar_heuristic(poses[i_train, :3, 3])
+
+        if images.shape[-1] == 4:
+            if args.white_bkgd:
+                images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+            else:
+                images = images[...,:3]*images[...,-1:]
+
+    elif args.data_type == 'toydesk':
+        images, poses, render_poses, masks, i_split, hwf = load_toydesk_data(args.data_path)
+        i_train, i_val, i_test = i_split
+        near = 0.
+        far = 1
+        if hwf is None:
+            hwf = [353, 640, 466.772]
+    
+    elif args.data_type in ['toydesk_custom', 'tankstemple_custom', 'synthetic_custom']:
+        images, poses, bds, render_poses, i_test, masks = load_toydesk_custom_data(args.data_path, factor=args.factor,
+            recenter=True, bd_factor=.75, spherify=args.spherify)
+        hwf = poses[0,:3,-1]
+        poses = poses[:,:3,:4]
+        print('Loaded llff', images.shape, render_poses.shape, hwf, args.data_path)
+        if not isinstance(i_test, list):
+            i_test = [i_test]
+
+        if args.llffhold > 0:
+            print('Auto LLFF holdout,', args.llffhold)
+            i_test = np.arange(images.shape[0])[::args.llffhold]
+        i_val = i_test
+        i_train = np.array([i for i in np.arange(int(images.shape[0])) if (i not in i_test and i not in i_val)])
+        if args.ndc:
+            near = 0.
+            far = 1.
+        else:
+            near = np.ndarray.min(bds) * .9
+            far = np.ndarray.max(bds) * 1.
+        print('NEAR FAR', near, far)
 
     else:
         print('Unknown dataset type:', args.data_type)
@@ -138,11 +191,14 @@ def generate_dataset(args, output_path):
     print('Done.', rays.shape)
 
     print('Splitting train/valid/test rays ...')
-    rays_train, rgbs_train = rays[i_train], images[i_train]
-    rays_val, rgbs_val = rays[i_val], images[i_val]
-    rays_test, rgbs_test = rays[i_test], images[i_test]
+    rays_train, rgbs_train, masks_train = rays[i_train], images[i_train], masks[i_train]
+    rays_val, rgbs_val, masks_val = rays[i_val], images[i_val], masks[i_val]
+    rays_test, rgbs_test, masks_test = rays[i_test], images[i_test], masks[i_test]
 
     print('Calculating exhibition rays ...')
+    if render_poses is None:
+        print(f'> Warning!  render_poses is None')
+        render_poses = poses[i_train]
     rays_exhibit = torch.stack([get_persp_rays(H, W, K, torch.tensor(p)) for p in tqdm(render_poses[:,:3,:4])], 0) # [N, ro+rd, H, W, 3]
     rays_exhibit = rays_exhibit.permute([0, 2, 3, 1, 4]).numpy().astype(np.float32) # [N, H, W, ro+rd, 3]
     print('Done.', rays_exhibit.shape)
@@ -155,14 +211,26 @@ def generate_dataset(args, output_path):
     print('Saving to: ', output_path)
     np.save(os.path.join(output_path, 'rays_train.npy'), rays_train)
     np.save(os.path.join(output_path, 'rgbs_train.npy'), rgbs_train)
+    np.save(os.path.join(output_path, 'masks_train.npy'), masks_train)
 
     np.save(os.path.join(output_path, 'rays_val.npy'), rays_val)
     np.save(os.path.join(output_path, 'rgbs_val.npy'), rgbs_val)
+    np.save(os.path.join(output_path, 'masks_val.npy'), masks_val)
 
     np.save(os.path.join(output_path, 'rays_test.npy'), rays_test)
     np.save(os.path.join(output_path, 'rgbs_test.npy'), rgbs_test)
+    np.save(os.path.join(output_path, 'masks_test.npy'), masks_test)
 
     np.save(os.path.join(output_path, 'rays_exhibit.npy'), rays_exhibit)
+
+    if args.w_pose:
+        print("> Save poses")
+        poses_train = poses[i_train]
+        poses_val = poses[i_val]
+        poses_test = poses[i_test]
+        np.save(os.path.join(output_path, 'poses_train.npy'), poses_train)
+        np.save(os.path.join(output_path, 'poses_val.npy'), poses_val)
+        np.save(os.path.join(output_path, 'poses_test.npy'), poses_test)
 
     # Save meta data
     meta_dict = {
@@ -180,6 +248,14 @@ def generate_dataset(args, output_path):
     print("Meta data:", meta_dict)
     with open(os.path.join(output_path, 'meta.json'), 'w') as f:
         json.dump(meta_dict, f)
+
+
+def inward_nearfar_heuristic(cam_o, ratio=0.05):
+    dist = np.linalg.norm(cam_o[:,None] - cam_o, axis=-1)
+    far = dist.max()
+    near = far * ratio
+    return near, far
+
 
 if __name__ == '__main__':
 

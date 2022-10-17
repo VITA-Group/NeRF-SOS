@@ -1,0 +1,14 @@
+expname = horse_custom
+basedir = ./logs
+datadir = ./datasets/tanks_and_temples_custom/horse
+dataset_type = tankstemple_custom
+
+factor = 2
+
+N_rand = 4096
+N_samples = 64
+N_importance = 128
+
+use_viewdirs = True
+raw_noise_std = 1e0
+
