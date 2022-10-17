@@ -50,6 +50,17 @@ cd data
 python gen_dataset.py --config ../configs/flower_full.txt  --data_path /PATH_TO_DATA/nerf_llff_data_fullres/flower/  --data_type llff
 ```
 
+## Evaluation using our pre-trained ckpt
+
+If you wanna see the rendered masks using the self-supervised trained model, run:
+```
+bash scrits/eval.sh
+```
+If you wanna see the rendered masks (video format) using the self-supervised trained model, run:
+```
+bash scrits/eval_video.sh
+```
+
 ## Training
 
 After preparing datasets, users can train a NeRF-SOS by the following command:
