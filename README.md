@@ -46,7 +46,7 @@ To run our code on NeRF dataset, users need first download data from official [c
 
 Then, please put the segments folder [LINK](https://drive.google.com/file/d/1gD5paJ8HBOFVyMRgweTc0jNTL41SmBFz/view?usp=sharing) under DATASET/SCENE/ (e.g., nerf_llff_data/flower/segments)
 
-We provide a data sampling for scene Flower in the [LINK](https://drive.google.com/file/d/1glu5KcPpXsLh9Im1b0X1M19Sja-HVkdL/view?usp=sharing), you can direct download it without any modification.
+We provide a data sample for scene Flower in the [LINK](https://drive.google.com/file/d/1glu5KcPpXsLh9Im1b0X1M19Sja-HVkdL/view?usp=sharing), you can direct download it without any modification.
 
 run the following command to generate training and testing data
 ```
