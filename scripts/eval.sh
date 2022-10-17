@@ -7,7 +7,7 @@ PATCH_STRIDE=8
 EXPNAME=flower_B8_P64_PS6_1corr0.18,1,0.46,1_0.01geoCorr0.5,1,3,1_noTrainSFM
 mkdir -p logs/$EXPNAME
 
-python -u run_nerf.py --gpuid 3 \
+python -u run_nerf.py --gpuid 0 \
 --expname ${EXPNAME}  \
 --config configs/${SCENE}_full.txt  \
 --i_print 200  \
@@ -38,4 +38,5 @@ python -u run_nerf.py --gpuid 3 \
 --app_corr_params 0.18 1 0.46 1 \
 --geo_corr_params 1 1 5 1 \
 --ckpt_path logs/${EXPNAME}/checkpoints/latest.ckpt \
---eval_video 
+--eval
+# --eval_video
