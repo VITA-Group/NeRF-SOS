@@ -95,3 +95,19 @@ bash scrits/eval.sh
 
 ## TODO
 support COLMAP poses
+
+## Citation
+
+If you find this repo is helpful, please cite:
+
+```
+
+@article{fan2022nerf,
+  title={NeRF-SOS: Any-View Self-supervised Object Segmentation from Complex Real-World Scenes},
+  author={Fan, Zhiwen and Wang, Peihao and Gong, Xinyu and Jiang, Yifan and Xu, Dejia and Wang, Zhangyang},
+  journal={arXiv e-prints},
+  pages={arXiv--2209},
+  year={2022}
+}
+
+```
