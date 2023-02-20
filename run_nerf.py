@@ -36,30 +36,30 @@ def create_arg_parser():
     # basic options
     parser.add_argument('--config', is_config_file=True,
                         help='config file path')
-    parser.add_argument("--expname", type=str, 
+    parser.add_argument("--expname", type=str,
                         help='experiment name')
-    parser.add_argument("--basedir", type=str, default='./logs/', 
+    parser.add_argument("--basedir", type=str, default='./logs/',
                         help='where to store ckpts and logs')
-    parser.add_argument("--gpuid", type=int, default=0, 
+    parser.add_argument("--gpuid", type=int, default=0,
                         help='gpu id for cuda')
-    parser.add_argument("--eval", action='store_true', 
+    parser.add_argument("--eval", action='store_true',
                         help='only evaluate without training')
-    parser.add_argument("--eval_video", action='store_true', 
+    parser.add_argument("--eval_video", action='store_true',
                         help='render video during evaluation')
-    parser.add_argument("--eval_vol", action='store_true', 
+    parser.add_argument("--eval_vol", action='store_true',
                         help='export density volume during evaluation')
-    parser.add_argument("--vol_extents", nargs='+', type=float, default=2., 
+    parser.add_argument("--vol_extents", nargs='+', type=float, default=2.,
                         help='extent of exported density volume')
-    parser.add_argument("--vol_size", type=float, default=2./256, 
+    parser.add_argument("--vol_size", type=float, default=2./256,
                         help='voxel size for exported density volume')
 
     # dataset options
-    parser.add_argument("--data_path", "--datadir", type=str, required=True, 
+    parser.add_argument("--data_path", "--datadir", type=str, required=True,
                         help='input data directory')
     parser.add_argument('--data_type', '--dataset_type', type=str, required=True,
-                        help='dataset type', choices=['llff', 'blender', 'LINEMOD', 'deepvoxels', 'toydesk', 
+                        help='dataset type', choices=['llff', 'blender', 'LINEMOD', 'deepvoxels', 'toydesk',
                         'toydesk_custom', 'tankstemple_custom'])
-    parser.add_argument("--subsample", type=int, default=0, 
+    parser.add_argument("--subsample", type=int, default=0,
                     help='subsampling rate if applicable')
 
     # flags for llff
@@ -77,45 +77,45 @@ def create_arg_parser():
         help='Load half-resolution (400x400) images instead of full resolution (800x800). Only for blender dataset.')
     parser.add_argument('--white_bkgd', action='store_true', default=False,
         help='Render synthetic data on white background. Only for blender/LINEMOD dataset')
-    parser.add_argument('--test_skip', type=int, default=8, 
+    parser.add_argument('--test_skip', type=int, default=8,
         help='will load 1/N images from test/val sets. Only for large datasets like blender/LINEMOD/deepvoxels.')
 
     ## flags for deepvoxels
-    parser.add_argument('--dv_scene', type=str, default='greek', 
+    parser.add_argument('--dv_scene', type=str, default='greek',
         help='Shape of deepvoxels scene. Only for deepvoxels dataset', choices=['armchair', 'cube', 'greek', 'vase'])
 
     # Training options
-    parser.add_argument("--netdepth", type=int, default=8, 
+    parser.add_argument("--netdepth", type=int, default=8,
                         help='layers in network')
-    parser.add_argument("--netwidth", type=int, default=256, 
+    parser.add_argument("--netwidth", type=int, default=256,
                         help='channels per layer')
-    parser.add_argument("--netdepth_fine", type=int, default=8, 
+    parser.add_argument("--netdepth_fine", type=int, default=8,
                         help='layers in fine network')
-    parser.add_argument("--netwidth_fine", type=int, default=256, 
+    parser.add_argument("--netwidth_fine", type=int, default=256,
                         help='channels per layer in fine network')
-    parser.add_argument("--max_steps", "--N_iters", type=int, default=200000, 
+    parser.add_argument("--max_steps", "--N_iters", type=int, default=200000,
                         help='max iteration number (number of iteration to finish training)')
-    parser.add_argument("--batch_size", "--N_rand", type=int, default=32*32*4, 
+    parser.add_argument("--batch_size", "--N_rand", type=int, default=32*32*4,
                         help='batch size (number of random rays per gradient step)')
     parser.add_argument("--lrate", type=float, default=5e-4,
                         help='learning rate')
-    parser.add_argument("--ray_chunk", type=int, default=1024*32, 
+    parser.add_argument("--ray_chunk", type=int, default=1024*32,
                         help='number of rays processed in parallel, decrease if running out of memory')
-    parser.add_argument("--pts_chunk", type=int, default=1024*256, 
+    parser.add_argument("--pts_chunk", type=int, default=1024*256,
                         help='number of pts sent through network in parallel, decrease if running out of memory')
-    parser.add_argument("--no_batching", action='store_true', 
+    parser.add_argument("--no_batching", action='store_true',
                         help='only take random rays from 1 image at a time')
 
     # hyper-parameter for learning scheduler
-    parser.add_argument("--decay_step", type=int, default=250, 
+    parser.add_argument("--decay_step", type=int, default=250,
                         help='exponential learning rate decay iteration (in 1000 steps)')
-    parser.add_argument("--decay_rate", type=float, default=0.1, 
+    parser.add_argument("--decay_rate", type=float, default=0.1,
                         help='exponential learning rate decay scale')
 
     # reload option
-    parser.add_argument("--no_reload", action='store_true', 
+    parser.add_argument("--no_reload", action='store_true',
                         help='do not reload weights from saved ckpt')
-    parser.add_argument("--ckpt_path", type=str, default='', 
+    parser.add_argument("--ckpt_path", type=str, default='',
                         help='specific weights npy file to reload for coarse network')
 
     parser.add_argument("--pin_mem", action='store_true', default=True,
@@ -127,7 +127,7 @@ def create_arg_parser():
                         help='number of workers used for data loading')
 
     # rendering options
-    parser.add_argument("--N_samples", type=int, default=64, 
+    parser.add_argument("--N_samples", type=int, default=64,
                         help='number of coarse samples per ray')
     parser.add_argument("--N_importance", type=int, default=64,
                         help='number of additional fine samples per ray')
@@ -138,115 +138,115 @@ def create_arg_parser():
     parser.add_argument("--no_viewdirs", action='store_false', dest='use_viewdirs',
                         help='disable full 5D input, using 3D without view dependency')
     parser.set_defaults(use_viewdirs=True)
-    parser.add_argument("--mipnerf", action='store_true', default=False, 
+    parser.add_argument("--mipnerf", action='store_true', default=False,
                         help='use mipnerf model')
-    parser.add_argument("--use_embed", action='store_true', default=True, 
+    parser.add_argument("--use_embed", action='store_true', default=True,
                         help='turn on positional encoding')
-    parser.add_argument("--no_embed", action='store_false', dest='use_embed', 
+    parser.add_argument("--no_embed", action='store_false', dest='use_embed',
                         help='turn on positional encoding')
     parser.set_defaults(use_embed=True)
-    parser.add_argument("--conv_embed", action='store_true', default=False, 
+    parser.add_argument("--conv_embed", action='store_true', default=False,
                         help='turn on 1D convolutional positional encoding')
-    parser.add_argument("--multires", type=int, default=10, 
+    parser.add_argument("--multires", type=int, default=10,
                         help='log2 of max freq for positional encoding (3D location)')
-    parser.add_argument("--multires_views", type=int, default=4, 
+    parser.add_argument("--multires_views", type=int, default=4,
                         help='log2 of max freq for positional encoding (2D direction)')
-    parser.add_argument("--raw_noise_std", type=float, default=0., 
+    parser.add_argument("--raw_noise_std", type=float, default=0.,
                         help='std dev of noise added to regularize sigma_a output, 1e0 recommended')
 
     # additional training options
     parser.add_argument("--precrop_iters", type=int, default=0,
                         help='number of steps to train on central crops')
     parser.add_argument("--precrop_frac", type=float,
-                        default=.5, help='fraction of img taken for central crops') 
+                        default=.5, help='fraction of img taken for central crops')
 
     # logging/saving options
-    parser.add_argument("--i_print",   type=int, default=500, 
+    parser.add_argument("--i_print",   type=int, default=500,
                         help='frequency of console/tensorboard printout and metric loggin')
-    parser.add_argument("--i_verbose",   type=int, default=500, 
+    parser.add_argument("--i_verbose",   type=int, default=500,
                         help='frequency of printing')
-    parser.add_argument("--i_img",     type=int, default=900000, 
+    parser.add_argument("--i_img",     type=int, default=900000,
                         help='frequency of tensorboard image logging')
-    parser.add_argument("--log_img_idx", type=int, default=0, 
+    parser.add_argument("--log_img_idx", type=int, default=0,
                     help='the view idx used for logging while testing')
-    parser.add_argument("--i_weights", type=int, default=10000, 
+    parser.add_argument("--i_weights", type=int, default=10000,
                         help='frequency of weight ckpt saving')
-    parser.add_argument("--i_testset", type=int, default=50000, 
+    parser.add_argument("--i_testset", type=int, default=50000,
                         help='frequency of testset saving')
-    parser.add_argument("--i_video",   type=int, default=50000, 
+    parser.add_argument("--i_video",   type=int, default=50000,
                         help='frequency of render_poses video saving')
-    
+
     # new added
-    parser.add_argument("--use_semantics", action='store_true', default=True, 
+    parser.add_argument("--use_semantics", action='store_true', default=True,
                         help='add another semantic branch')
-    parser.add_argument("--no_semantics", action='store_true', default=False, 
+    parser.add_argument("--no_semantics", action='store_true', default=False,
                         help='add another semantic branch')
-    parser.add_argument("--sem_w", type=float, default=0, 
+    parser.add_argument("--sem_w", type=float, default=0,
                         help='semantic loss weight')
-    parser.add_argument("--rgb_w", type=float, default=1, 
+    parser.add_argument("--rgb_w", type=float, default=1,
                         help='rgb loss weight')
-    parser.add_argument("--load_nostrict", action='store_true', default=False, 
+    parser.add_argument("--load_nostrict", action='store_true', default=False,
                         help='strict when loading ckpt')
-    parser.add_argument("--patch_tune", action='store_true', default=False, 
+    parser.add_argument("--patch_tune", action='store_true', default=False,
                         help='finetuning using patch wise')
-    parser.add_argument("--patch_size", type=int, default=32, 
+    parser.add_argument("--patch_size", type=int, default=32,
                         help='patch size for dataloader')
-    parser.add_argument("--patch_stride", type=int, default=1, 
+    parser.add_argument("--patch_stride", type=int, default=1,
                         help='patch stride for dataloader')
-    parser.add_argument("--bin_thres", type=float, default=0.3, 
+    parser.add_argument("--bin_thres", type=float, default=0.3,
                         help='binary threshold for dino segmentation')
-    parser.add_argument("--use_dino", action='store_true', default=False, 
+    parser.add_argument("--use_dino", action='store_true', default=False,
                         help='add dino as output')
-    parser.add_argument("--use_contrast", action='store_true', default=False, 
+    parser.add_argument("--use_contrast", action='store_true', default=False,
                         help='use contrastive loss')
-    parser.add_argument("--fast_mode", action='store_true', default=False, 
+    parser.add_argument("--fast_mode", action='store_true', default=False,
                         help='only eval first image')
-    parser.add_argument("--contrast_w", type=float, default=0, 
+    parser.add_argument("--contrast_w", type=float, default=0,
                         help='contrast loss weight')
-    parser.add_argument("--verbose", action='store_true', default=False, 
+    parser.add_argument("--verbose", action='store_true', default=False,
                         help='verbose print')
-    parser.add_argument("--sem_layer", type=int, default=2, 
+    parser.add_argument("--sem_layer", type=int, default=2,
                         help='semantic branch layer number')
-    parser.add_argument("--fix_backbone", action='store_true', default=False, 
+    parser.add_argument("--fix_backbone", action='store_true', default=False,
                         help='fix nerf backbone')
-    parser.add_argument("--ret_cluster", action='store_true', default=False, 
+    parser.add_argument("--ret_cluster", action='store_true', default=False,
                         help='return and save clustering results')
-    parser.add_argument("--correlation_w", type=float, default=0.001, 
+    parser.add_argument("--correlation_w", type=float, default=0.001,
                         help='correlation loss weight')
-    parser.add_argument("--Gcorrelation_w", type=float, default=0.001, 
+    parser.add_argument("--Gcorrelation_w", type=float, default=0.001,
                         help='correlation loss weight')
-    parser.add_argument("--use_correlation", action='store_true', default=False, 
+    parser.add_argument("--use_correlation", action='store_true', default=False,
                         help='use correlation to compute loss')
-    parser.add_argument("--clus_no_sfm", action='store_true', default=False, 
+    parser.add_argument("--clus_no_sfm", action='store_true', default=False,
                         help='no soft max before clustering')
-    parser.add_argument("--sem_dim", type=int, default=2, 
+    parser.add_argument("--sem_dim", type=int, default=2,
                         help='semantic branch layer dimension')
-    parser.add_argument("--N_cluster", type=int, default=2, 
+    parser.add_argument("--N_cluster", type=int, default=2,
                         help='cluster number')
-    parser.add_argument("--self_corr_w", type=float, default=0, 
+    parser.add_argument("--self_corr_w", type=float, default=0,
                         help='self correlation loss weight')
-    parser.add_argument("--sem_with_coord", action='store_true', default=False, 
+    parser.add_argument("--sem_with_coord", action='store_true', default=False,
                         help='input coordinate for semantic branch')
-    parser.add_argument("--sem_with_geo", action='store_true', default=False, 
+    parser.add_argument("--sem_with_geo", action='store_true', default=False,
                         help='input coordinate for semantic branch')
-    parser.add_argument("--use_geoCorr", action='store_true', default=False, 
+    parser.add_argument("--use_geoCorr", action='store_true', default=False,
                         help='use geometry correlation loss')
-    parser.add_argument("--pos_corr_w", type=float, default=0, 
+    parser.add_argument("--pos_corr_w", type=float, default=0,
                         help='positive correlation loss weight')
-    parser.add_argument("--use_sim_matrix", action='store_true', default=False, 
+    parser.add_argument("--use_sim_matrix", action='store_true', default=False,
                         help='use similar matrix to find negative pair')
-    parser.add_argument('--app_corr_params', nargs='*', default=[None, None, None, None], 
+    parser.add_argument('--app_corr_params', nargs='*', default=[None, None, None, None],
                         help="self_shift, self_weight, neg_shift, neg_weight")
-    parser.add_argument('--geo_corr_params', nargs='*', default=[None, None, None, None], 
+    parser.add_argument('--geo_corr_params', nargs='*', default=[None, None, None, None],
                         help="self_shift, self_weight, neg_shift, neg_weight")
-    parser.add_argument("--use_masks", action='store_true', default=False, 
+    parser.add_argument("--use_masks", action='store_true', default=False,
                         help='use_masks')
-    parser.add_argument("--rand_neg", action='store_true', default=False, 
+    parser.add_argument("--rand_neg", action='store_true', default=False,
                         help='rand_neg')
     return parser
 
 def main(args):
-    
+
     if args.no_semantics:
         args.use_semantics = False
     print(f'> Semantic branch is {args.use_semantics}, semantic weight is {args.sem_w}')
@@ -320,7 +320,7 @@ def main(args):
     optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lrate, betas=(0.9, 0.999))
     scheduler = LRScheduler(optimizer=optimizer, init_lr=args.lrate, decay_rate=args.decay_rate, decay_steps=args.decay_step*1000)
     print(f'[Check require grad or not]: {list(model.nerf_fine.mlp.pts_linears[0].parameters())[0].requires_grad}')
-    
+
     if args.use_dino:
         dino = VitExtractor(model_name='dino_vits16', device=device)
         # dino = Dino(arch='vit_small', patch_size=8, image_size=(args.patch_size, args.patch_size), device=device, fix=True, \
@@ -347,7 +347,7 @@ def main(args):
     ckpt_dict = None
     if os.path.exists(ckpt_path):
         print(f'>>> Load strict: {not args.load_nostrict}')
-        ckpt_dict = torch.load(ckpt_path)
+        ckpt_dict = torch.load(ckpt_path, map_location='cpu')
 
     # reload from checkpoint
     if ckpt_dict is not None:
@@ -377,7 +377,7 @@ def main(args):
         exit(0)
     ####### Eval video #######
     if args.eval_video and exhibit_set is not None:
-        render_video(model, exhibit_set, device=device, save_dir=run_dir, suffix=args.expname, 
+        render_video(model, exhibit_set, device=device, save_dir=run_dir, suffix=args.expname,
             ret_cluster=args.ret_cluster, clus_no_sfm=args.clus_no_sfm, N_cluster=args.N_cluster, fast_mode=args.fast_mode)
         exit(0)
     ####### Eval Density ########
@@ -403,10 +403,10 @@ def main(args):
         if not args.no_batching:
             if not args.patch_tune:
                 train_set = RayNeRFDataset(args.data_path, args, subsample=args.subsample, split='train', cam_id=False)
-                train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, 
+                train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
             collate_fn=RayBatchCollater(), num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=True)
             else:
-                train_set = PatchNeRFDataset(args.data_path, args, subsample=args.subsample, split='train', cam_id=False, 
+                train_set = PatchNeRFDataset(args.data_path, args, subsample=args.subsample, split='train', cam_id=False,
                 crop_size=args.patch_size*args.patch_stride, patch_stride=args.patch_stride, bin_thres=args.bin_thres, ret_k=args.use_geoCorr)
                 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
             collate_fn=PatchBatchCollater(), num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=True)
@@ -415,7 +415,7 @@ def main(args):
                 precrop_iters=args.precrop_iters, precrop_frac=args.precrop_frac, start_iters=global_step, bin_thres=args.bin_thres)
             # number of workers must be zero, because there is an iteration counter inside.
             # multi-threading will duplicate accumulation to that counter.
-            train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, 
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True,
                 collate_fn=ViewBatchCollater(), num_workers=0, pin_memory=args.pin_mem, drop_last=True)
 
         near, far = train_loader.dataset.near_far()
@@ -430,7 +430,7 @@ def main(args):
         while global_step < args.max_steps:
             time0 = time.time()
             epoch = global_step // len(train_loader) + 1
-            
+
             for batch in train_loader:
                 # counter accumulate
                 global_step += 1
@@ -504,7 +504,7 @@ def main(args):
                     print("Evaluating test images ...")
                     save_dir = os.path.join(run_dir, 'testset_{:08d}'.format(global_step))
                     os.makedirs(save_dir, exist_ok=True)
-                    metric_dict = evaluate(model, test_set, device=device, save_dir=save_dir, 
+                    metric_dict = evaluate(model, test_set, device=device, save_dir=save_dir,
                         fast_mode=args.fast_mode, ret_cluster=args.ret_cluster, clus_no_sfm=args.clus_no_sfm)
 
                     # log testing metric
@@ -513,13 +513,13 @@ def main(args):
 
                 # exhibition video
                 if global_step % args.i_video==0 and global_step > 0 and exhibit_set is not None:
-                    render_video(model, exhibit_set, device=device, save_dir=run_dir, suffix=str(global_step), 
+                    render_video(model, exhibit_set, device=device, save_dir=run_dir, suffix=str(global_step),
                     fast_mode=args.fast_mode, ret_cluster=args.ret_cluster, clus_no_sfm=args.clus_no_sfm, N_cluster=args.N_cluster)
 
                 # End training if finished
                 if global_step >= args.max_steps:
                     print(f'Train ends at global_step={global_step}')
-                    break   
+                    break
 
         save_checkpoint(os.path.join(ckpt_dir, 'last.ckpt'), global_step, model, optimizer)
 
@@ -528,9 +528,9 @@ def main(args):
     os.makedirs(save_dir, exist_ok=True)
     evaluate(model, test_set, device=device, save_dir=save_dir)
     if args.eval_video and exhibit_set is not None:
-        render_video(model, exhibit_set, device=device, save_dir=save_dir, fast_mode=False, 
+        render_video(model, exhibit_set, device=device, save_dir=save_dir, fast_mode=False,
         ret_cluster=args.ret_cluster, clus_no_sfm=args.clus_no_sfm, N_cluster=args.N_cluster)
-    
+
 
 if __name__=='__main__':
     # Random seed

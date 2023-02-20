@@ -53,16 +53,16 @@ def create_arg_parser():
         help='Load half-resolution (400x400) images instead of full resolution (800x800). Only for blender dataset.')
     parser.add_argument('--white_bkgd', action='store_true', default=False,
         help='Render synthetic data on white background. Only for blender/LINEMOD dataset')
-    parser.add_argument('--test_skip', type=int, default=8, 
+    parser.add_argument('--test_skip', type=int, default=8,
         help='will load 1/N images from test/val sets. Only for large datasets like blender/LINEMOD/deepvoxels.')
 
     ## flags for deepvoxels
-    parser.add_argument('--dv_scene', type=str, default='greek', 
+    parser.add_argument('--dv_scene', type=str, default='greek',
         help='Shape of deepvoxels scene. Only for deepvoxels dataset', choices=['armchair', 'cube', 'greek', 'vase'])
-    
-    parser.add_argument("--inverse_y", default=False, 
+
+    parser.add_argument("--inverse_y", default=False,
                         help='inverse y when generating dataset and render')
-    
+
     parser.add_argument("--w_pose", action="store_true", default=False, help='save poses')
 
     return parser
@@ -130,7 +130,7 @@ def generate_dataset(args, output_path):
         hemi_R = np.mean(np.linalg.norm(poses[:,:3,-1], axis=-1))
         near = hemi_R-1.
         far = hemi_R+1.
-    
+
     elif args.data_type == 'tankstemple':
         images, poses, render_poses, hwf, K, i_split = load_tankstemple_data(args.data_path)
         i_train, i_val, i_test = i_split
@@ -150,7 +150,7 @@ def generate_dataset(args, output_path):
         far = 1
         if hwf is None:
             hwf = [353, 640, 466.772]
-    
+
     elif args.data_type in ['toydesk_custom', 'tankstemple_custom', 'synthetic_custom']:
         images, poses, bds, render_poses, i_test, masks = load_toydesk_custom_data(args.data_path, factor=args.factor,
             recenter=True, bd_factor=.75, spherify=args.spherify)

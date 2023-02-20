@@ -1,0 +1,14 @@
+expname = co3d_backpack_537_78249_152122
+basedir = ./logs
+datadir = /ssd1/zhiwen/datasets/co3d_colmap/co3d_backpack_537_78249_152122
+dataset_type = llff
+dtu_scan = 1
+
+N_rand = 4048
+N_samples = 64
+N_importance = 128
+
+use_viewdirs = True
+raw_noise_std = 1e0
+
+factor = 1
