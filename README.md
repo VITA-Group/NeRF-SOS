@@ -31,7 +31,8 @@ lpips
 
 ## Data Preparation
 
-To run our code on NeRF dataset, users need first download data from official [cloud drive](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1). Then extract package files according to the following directory structure:
+To run our code on NeRF dataset, users can either download our combined (RGB+poses+masks) datasets through [cloud drive](https://drive.google.com/file/d/1i0wN_cLgllMPJFG0w-si7oCoZjVT94Gr/view?usp=share_link) and then generate .npy training data following the subsequent suggestions, or download original NeRF data from official [cloud drive](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1) and official CO3Dv2 datasets. 
+Then extract package files according to the following directory structure:
 
 ```
 ├── configs
@@ -39,8 +40,12 @@ To run our code on NeRF dataset, users need first download data from official [c
 │
 ├── datasets
 │   ├── nerf_llff_data
-│   │   └── flower  # downloaded llff dataset
-│   │   └── fortress   # downloaded llff dataset
+│   │   └── flower 
+│   │   └── fortress 
+|   |   └── ...
+│   ├── co3d_colmap
+│   │   └── co3d_apple_110_13051_23361 
+│   │   └── co3d_backpack_537_78249_152122  
 |   |   └── ...
 ```
 
@@ -54,9 +59,7 @@ python gen_dataset.py --config ../configs/flower_full.txt  --data_path /PATH_TO_
 ```
 ### Download Prepared Data
 #### Scene Flower
-We provide a data sample for scene ``Flower'' can be found in the [LINK](https://drive.google.com/file/d/1glu5KcPpXsLh9Im1b0X1M19Sja-HVkdL/view?usp=sharing), you can direct download it without any modification.
-#### Scene Fortress
-Prepared data on scene ``Fortress'' can be found in the [LINK](https://drive.google.com/file/d/1b586a2eOHoqm_ygq_dmvLvKCfQNX03D9/view?usp=share_link)
+We provide a data sample for scene ``Flower'' (with multi-view images, camera poses, masks and the processed .npy training files) can be found in the [LINK](https://drive.google.com/file/d/1glu5KcPpXsLh9Im1b0X1M19Sja-HVkdL/view?usp=sharing), you can direct download it without any modification.
 
 ## Evaluation using our pre-trained ckpt
 
@@ -73,7 +76,10 @@ bash scrits/eval_video.sh
 
 After preparing datasets, users can train a NeRF-SOS by the following command:
 ```
-bash scripts/flower_node0.sh
+bash scripts/train_flower_node0.sh
+bash scripts/train_fortress_node0.sh
+bash scripts/train_co3d_apple_node0.sh
+bash scripts/train_co3d_backpack_node0.sh
 ```
 
 For more options, please check via the following instruction:
