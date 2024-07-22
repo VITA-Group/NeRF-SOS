@@ -1,4 +1,4 @@
-# NeRF-SOS - PyTorch Implementation
+# NeRF-SOS - PyTorch Implementation [ICLR'2023]
 Implementation of paper "NeRF-SOS: Any-View Self-supervised Object Segmentation from Complex Real-World Scenes " with PyTorch library.
 
 [Project Page](https://zhiwenfan.github.io/NeRF-SOS/) | [Paper](https://arxiv.org/abs/2209.08776)
